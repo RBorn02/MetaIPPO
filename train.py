@@ -28,10 +28,8 @@ parser.add_argument("--coop_chance", type=float, default=0.5,
                     help="Chance of cooperative goal")
 parser.add_argument("--total_steps", type=int, default=2.5*10e7,
                     help="Number of steps to train for")
-parser.add_argument("--rollout_steps", type=int, default=16384,
+parser.add_argument("--rollout_steps", type=int, default=8196,
                     help="Number of steps per rollout")
-parser.add_argument("--batch_size", type=int, default=4096,
-                    help="Size of the minibatch")
 parser.add_argument("--seed", type=int, default=1,
                     help="Random seed")
 parser.add_argument("--device", type=str, default="cpu",
@@ -85,7 +83,7 @@ parser.add_argument("--lstm_layers", type=int, default=1,
 
 
 args = parser.parse_args()
-args.batch_size = int(args.num_envs * args.rollout_steps)
+args.batch_size = int(args.rollout_steps)
 args.minibatch_size = int(args.batch_size // args.num_minibatches)
 
 config = build_config(args)
@@ -100,7 +98,7 @@ optimizer_dict = {"agent_{0}".format(a): {"optimizer": torch.optim.Adam(agent_di
                   for a in range(config["env_config"]["num_agents"])}
 
 #Build the policies
-policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]) 
+policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
                for a in range(config["env_config"]["num_agents"])}
 
 #Train the agents
@@ -117,8 +115,8 @@ if __name__ == "__main__":
 
     #Start the game
     global_step = 0
-    next_obs, _ = env.reset([i for i in range(config["env_config"]["num_envs"])])
-    next_dones = {"agent_{0}".format(a): torch.zeros(config["env_config"]["num_envs"]) for a in range(config["env_config"]["num_agents"])}
+    next_obs, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+    next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])) for a in range(config["env_config"]["num_agents"])}
     #for a in range(config["env_name"]["num_agents)"]):
     #    storage["agent_{0}".format(a)]["next_obs"] = next_obs["agent_{0}".format(a)]
     
@@ -138,7 +136,7 @@ if __name__ == "__main__":
                 optimizer_dict["agent_{0}".format(a)]["optimizer"].param_groups[0]["lr"] = lrnow
         
         #Collect trajectories for the agents. Keep going untill all agents have collected enough steps
-        rollout_step = 0
+        rollout_step = 1
         steps_per_env = torch.Tensor([config["rollout_steps"] // config["env_config"]["num_envs"]]).repeat(config["env_config"]["num_envs"])
         while True:
             global_step += 1 * config["env_config"]["num_envs"]
@@ -147,8 +145,10 @@ if __name__ == "__main__":
                 next_agent_dones = next_dones["agent_{0}".format(a)]
                 next_agent_lstm_state = storage["agent_{0}".format(a)]["next_lstm_state"]
                 
-                torch.cat((storage["agent_{0}".format(a)]["obs"], next_agent_obs), dim=0)
-                torch.cat((storage["agent_{0}".format(a)]["dones"], next_agent_dones), dim=0)
+                storage["agent_{0}".format(a)]["obs"] = torch.cat((storage["agent_{0}".format(a)]["obs"], 
+                                                                   next_agent_obs), dim=0)
+                #storage["agent_{0}".format(a)]["dones"] = torch.cat((storage["agent_{0}".format(a)]["dones"], 
+                #                                                     next_agent_dones), dim=0)
             
                 #Get the actions from the policy
                 with torch.no_grad():
@@ -157,47 +157,62 @@ if __name__ == "__main__":
                     #have num (rollout_steps // num_envs) data points. Can be inefficient because some collected data will be discarded.
                     #However, this makes updating the policy much simpler.
                     
-                    dones_idx = next_agent_dones.nonzero().squeeze()
-                    storage["agent_{0}".format(a)]["is_training"].cat(torch.ones_like(next_agent_dones) - next_agent_dones)
-                    storage["agent_{0}".format(a)]["collected_env_steps"] + (torch.ones_like(next_agent_dones) - next_agent_dones).squeeze()
+                    not_dones_idx = torch.Tensor(torch.ones_like(next_agent_dones.squeeze()) - next_agent_dones.squeeze()).nonzero().squeeze()
+                    storage["agent_{0}".format(a)]["is_training"] = torch.cat((storage["agent_{0}".format(a)]["is_training"], 
+                               torch.ones_like(next_agent_dones) - next_agent_dones), dim=0)
+                    storage["agent_{0}".format(a)]["collected_env_steps"] += (torch.ones_like(next_agent_dones) - next_agent_dones).squeeze()
 
-                    action, log_prob, value, next_lstm_state = get_init_tensors(env, config)
+                    action, log_prob, value, next_lstm_state = get_init_tensors(config, storage, env, "agent_{0}".format(a))
+                    next_agent_lstm_state = (next_agent_lstm_state[0][:,not_dones_idx,:], next_agent_lstm_state[1][:,not_dones_idx,:])
+                    next_agent_obs = next_agent_obs[0][not_dones_idx]
+                    next_agent_dones = next_agent_dones[0][not_dones_idx]
+                    
                     act_raw, log_prob_raw, _, val_raw, next_lstm_state_raw = policy_dict["agent_{0}".format(a)].get_action_and_value(
-                                                                                                                next_agent_obs[dones_idx],
-                                                                                                                 next_agent_lstm_state[:,dones_idx,:],
-                                                                                                                 next_agent_dones[dones_idx])
-                    action[dones_idx] = act_raw
-                    log_prob[dones_idx] = log_prob_raw
-                    value[dones_idx] = val_raw
-                    next_lstm_state[0][:,dones_idx,:] = next_lstm_state_raw[0]
+                                                                                                                next_agent_obs,
+                                                                                                                 next_agent_lstm_state,
+                                                                                                                 next_agent_dones)
+                    
+                    action[:,not_dones_idx] = act_raw.unsqueeze(dim=0)
+                    log_prob[:,not_dones_idx] = log_prob_raw.unsqueeze(dim=0)
+                    value[:,not_dones_idx] = val_raw.transpose(0,1)
+                    next_lstm_state[0][:,not_dones_idx,:] = next_lstm_state_raw[0]
+                    next_lstm_state[1][:,not_dones_idx,:] = next_lstm_state_raw[1]
 
                     
                     actions = {"agent_{0}".format(a): action}
 
-                    storage["agent_{0}".format(a)]["values"].cat(value, dim=0)
+                    storage["agent_{0}".format(a)]["values"] = torch.cat((storage["agent_{0}".format(a)]["values"], value), dim=0)
                 
-                storage["agent_{0}".format(a)]["actions"].cat(action, dim=0)
-                storage["agent_{0}".format(a)]["log_probs"].cat(log_prob, dim=0)
+                storage["agent_{0}".format(a)]["actions"] = torch.cat((storage["agent_{0}".format(a)]["actions"], action), dim=0)
+                storage["agent_{0}".format(a)]["logprobs"] = torch.cat((storage["agent_{0}".format(a)]["logprobs"], log_prob), dim=0)
 
-                storage["agent_{0}".format(a)]["next_lstm_state"][0] = next_lstm_state[0]
-                storage["agent_{0}".format(a)]["next_lstm_state"][1] = next_lstm_state[1]
+                storage["agent_{0}".format(a)]["next_lstm_state"] = (next_lstm_state[0], next_lstm_state[1])
 
             #Take a step in the environment
-            actions = torch.cat([actions["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])], dim=1)
-            next_obs, rewards, dones, _, infos = env.step(actions)
+            actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1) 
+                                 for a in range(config["env_config"]["num_agents"])], dim=1)
+    
+            next_obs, rewards, dones, infos = env.step(actions)
             
             #Handle the dones and convert the bools to binary tensors
             next_dones = handle_dones(dones)
 
             #Store the rewards
             for a in range(config["env_config"]["num_agents"]):
-                storage["agent_{0}".format(a)]["rewards"].cat(rewards["agent_{0}".format(a)], dim=0)
+                storage["agent_{0}".format(a)]["rewards"] = torch.cat((storage["agent_{0}".format(a)]["rewards"], 
+                                                                       rewards["agent_{0}".format(a)]), dim=0)
+                storage["agent_{0}".format(a)]["dones"] = torch.cat((storage["agent_{0}".format(a)]["dones"], 
+                                                                     next_dones["agent_{0}".format(a)]), dim=0)
             
             
             for e in range(config["env_config"]["num_envs"]):
                 if dones["__all__"][e]:
-                    next_obs[e], _ = env.reset(e)
-                    next_dones[e] = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
+                    for a in range(config["env_config"]["num_agents"]):
+                        reset_obs , _ = env.reset(e)
+                        next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)]
+                        next_dones["agent_{0}".format(a)][0][e] = 0.0
+                    #for a in range(config["env_config"]["num_agents"]):
+                    #    next_dones["agent_{0}".format(a)][e] = 0.0
 
                 
 
@@ -206,33 +221,36 @@ if __name__ == "__main__":
             condition_ls = []
             for a in range(config["env_config"]["num_agents"]):
                 condition = storage["agent_{0}".format(a)]["collected_env_steps"] >= steps_per_env
-                condition_ls.append(condition)
+                condition_ls.append(condition.all())
             
+            
+            #print(storage["agent_0"]["rewards"], storage["agent_1"]["rewards"])
             if all(condition_ls):
                 break
 
         #Get correct training data from storage and truncate it
-        storage = truncate_storage(storage, rollout_step, config)  
-            
+        storage = truncate_storage(storage, config)  
             
         
         #Compute the advantages for each policy
         for a in range(config["env_config"]["num_agents"]):
-            storage["agent_{0}".format(a)]["advantages"] = policy_dict["agent_{0}".format(a)].compute_advantages( 
-                                                                                storage["agent_{0}".format(a)],
-                                                                                next_obs["agent_{0}".format(a)],
-                                                                                next_dones["agent_{0}".format(a)],
-            )
+            advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
+                                                                        storage["agent_{0}".format(a)],
+                                                                        next_obs["agent_{0}".format(a)],
+                                                                        next_dones["agent_{0}".format(a)])
+            storage["agent_{0}".format(a)]["advantages"] = advantages
+            storage["agent_{0}".format(a)]["returns"] = returns
+
         
         #Update the policy parameters
         for a in range(config["env_config"]["num_agents"]):
             policy_dict["agent_{0}".format(a)].train(storage["agent_{0}".format(a)])
-        
-        #Reset the storage for the next epoch
-        storage = reset_storage(storage, config, env)
 
         #TODO: Add all the tracking and printing
-        training_info[update] = print_info(storage, update) 
+        training_info[update] = print_info(storage, update)
+
+        #Reset the storage for the next epoch
+        storage = reset_storage(storage, config, env) 
         
         if global_step >= config["total_steps"]:
             print("Training finished")

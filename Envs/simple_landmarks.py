@@ -267,11 +267,14 @@ class MultiAgentLandmarks(MultiAgentEnv):
                 agent_action = action_dict.get(agent.name)
                 actions[agent] = {}
                 actuators = agent.controller.controlled_actuators
+                act_idx = 0
                 for actuator, act in zip(actuators, agent_action):
                     if isinstance(actuator, ContinuousActuator):
-                        actions[agent][actuator] = act
+                        actions[agent][actuator] = self.clip_actions(act, act_idx)
+                        act_idx += 1
                     else:
-                        actions[agent][actuator] = round(act)
+                        actions[agent][actuator] = round(self.clip_actions(act, act_idx))
+                        act_idx += 1
         self.engine.step(actions)
         self.engine.update_observations()
         observations = self.process_obs()
@@ -397,6 +400,9 @@ class MultiAgentLandmarks(MultiAgentEnv):
                         goal = random.choice(possible_single_goals)
                         self.agent_goal_dict[agent] = np.array(goal, dtype=int)
                         #possible_single_goals.remove(goal)
+    
+    def clip_actions(self, actions, act_idx):
+        return np.clip(actions, self.action_space.low[act_idx], self.action_space.high[act_idx])
     
     def render(self):
          image = self.engine.generate_agent_image(self.playground.agents[1])
@@ -807,7 +813,7 @@ class CustomRewardOnActivation(RewardOnActivation):
             
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    config = {"num_goals": 3,
+    config = {"num_landmarks": 3,
               "num_agents": 2,
               "timelimit": 1000,
               "coop_chance":0.0,
@@ -819,20 +825,20 @@ if __name__ == "__main__":
     #print(env.action_space.sample())
     obs = env.reset()
     obs_sampled = env.observation_space.sample()
-    for i in range(100):
+    for i in range(1000):
         actions = {"agent_0": env.action_space.sample(),
                    "agent_1": env.action_space.sample(),}
     #               "agent_2": env.action_space.sample()}
         #print(actions)
-        obs, rewards, _, _, info = env.step(actions)
-        print(rewards)
+        obs, rewards, dones, _, info = env.step(actions)
+        print(dones)
         #print(info)
         #print(obs)
         #print(env.agent_goal_dict)
         #print(obs["agent_0"] == obs["agent_1"])
-        img = env.render()
-        plt.imshow(img)
-        plt.show()
+        #img = env.render()
+        #plt.imshow(img)
+        #plt.show()
     
     #config2 = {"num_goals": 3,
     #          "num_agents": 2,

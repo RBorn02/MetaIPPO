@@ -17,16 +17,17 @@ class LSTM_PPO_Policy():
         """Returns the value of the observation"""
         return self.agent.get_value(obs)
     
-    def get_action_and_value(self, obs):
+    def get_action_and_value(self, obs, lstm_state, done, action=None):
         """Returns the action and value of the observation"""
-        return self.agent.get_action_and_value(obs)
+        return self.agent.get_action_and_value(obs, lstm_state, done, action)
     
     def get_advantages(self, storage, next_obs, next_done):
         """Returns the advantage for the Policy"""
         rewards = storage["rewards"]
         dones = storage["dones"]
         values = storage["values"]
-        next_lstm_state = storage["lstm_states"]
+        next_lstm_state = storage["next_lstm_state"]
+        num_steps = self.config["rollout_steps"] // self.config["env_config"]["num_envs"]
     
         with torch.no_grad():
             next_value = self.agent.get_value(
@@ -37,20 +38,20 @@ class LSTM_PPO_Policy():
             if self.config["gae"]:
                 advantages = torch.zeros_like(rewards).to(self.config["device"])
                 lastgaelam = 0
-                for t in reversed(range(self.config["num_steps"])):
-                    if t == self.config["num_steps"] - 1:
+                for t in reversed(range(num_steps)):
+                    if t == num_steps - 1:
                         nextnonterminal = 1.0 - next_done
                         nextvalues = next_value
                     else:
-                        nextnonterminal = 1.0 - dones[t + 1]
+                        nextnonterminal = 1.0 - dones[t + 1] #Maybe need to change this because of done order (to t)
                         nextvalues = values[t + 1]
                     delta = rewards[t] + self.config["gamma"] * nextvalues * nextnonterminal - values[t]
                     advantages[t] = lastgaelam = delta + self.config["gamma"] * self.config["gae_lambda"] * nextnonterminal * lastgaelam
                 returns = advantages + values
             else:
                 returns = torch.zeros_like(rewards).to(self.config["device"])
-                for t in reversed(range(self.config["num_steps"])):
-                    if t == self.config["num_steps"] - 1:
+                for t in reversed(range(num_steps)):
+                    if t == num_steps - 1:
                         nextnonterminal = 1.0 - next_done
                         next_return = next_value
                     else:
@@ -74,6 +75,7 @@ class LSTM_PPO_Policy():
         values = storage["values"]
         advantages = storage["advantages"]
         returns = storage["returns"]
+        num_steps = self.config["rollout_steps"] // self.config["env_config"]["num_envs"]
 
         
         b_obs = obs.reshape((-1,) + self.observation_shape)
@@ -88,7 +90,7 @@ class LSTM_PPO_Policy():
         assert self.config["env_config"]["num_envs"] % self.config["num_minibatches"] == 0
         envsperbatch = self.config["env_config"]["num_envs"] // self.config["num_minibatches"]
         envinds = np.arange(self.config["env_config"]["num_envs"])
-        flatinds = np.arange(self.config["batch_size"]).reshape(self.config["rollout_steps"], self.config["env_config"]["num_envs"])
+        flatinds = np.arange(self.config["batch_size"]).reshape(num_steps, self.config["env_config"]["num_envs"])
         clipfracs = []
         for epoch in range(self.config["update_epochs"]):
             np.random.shuffle(envinds)

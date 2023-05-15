@@ -24,17 +24,21 @@ def build_storage(config, env):
                     "actions":torch.zeros((1, num_envs) + env.action_space.shape).to(device),
                     "values":torch.zeros((1, num_envs)).to(device),
                     "logprobs":torch.zeros((1, num_envs)).to(device),
-                    "returns":torch.zeros((num_steps, num_envs)).to(device),
-                    "advantages":torch.zeros((num_steps, num_envs)).to(device),
+                    "returns":torch.zeros((num_steps // num_envs, num_envs, num_envs)).to(device),
+                    "advantages":torch.zeros((num_steps // num_envs, num_envs)).to(device),
                     }
               
     return storage
 
-def get_init_tensors(storage):
-    action = torch.zeros_like(storage["actions"])
-    logprob = torch.zeros_like(storage["logprobs"])
-    value = torch.zeros_like(storage["values"])
-    next_lstm_state = (torch.zeros_like(storage["next_lstm_state"][0], torch.zeros_like(storage["next_lstm_state"][1])))
+def get_init_tensors(config, storage, env, agent):
+    num_steps = config["rollout_steps"]
+    num_envs = config["env_config"]["num_envs"]
+    device = config["device"]
+
+    action = torch.zeros((1, num_envs) + env.action_space.shape).to(device)
+    logprob = torch.zeros((1, num_envs)).to(device)
+    value = torch.zeros((1, num_envs)).to(device)
+    next_lstm_state = (torch.zeros_like(storage[agent]["next_lstm_state"][0]), torch.zeros_like(storage[agent]["next_lstm_state"][1]))
     return action, logprob, value, next_lstm_state
 
 
@@ -47,7 +51,8 @@ def truncate_storage(storage, config):
     for agent in storage.keys():
         for key in storage[agent].keys():
             if key in ["obs", "dones", "rewards", "actions", "values", "logprobs"]:
-                storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][:steps_per_env]
+                shape = storage[agent][key].shape
+                storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][:rollout_steps].reshape((-1,) + shape[1:])
             else:
                 continue
     return storage
@@ -62,8 +67,10 @@ def reset_storage(storage, config, env):
         for key in storage[agent].keys():
             if key in ["obs"]:
                 storage[agent][key] = torch.zeros((1, num_envs) + env.observation_space.shape).to(device)
-            elif key in ["dones", "is_training", "rewards", "actions", "values", "logprobs"]:
+            elif key in ["dones", "is_training", "rewards", "values", "logprobs"]:
                 storage[agent][key] = torch.zeros((1, num_envs)).to(device)
+            elif key in ["actions"]:
+                storage[agent][key] = torch.zeros((1, num_envs) + env.action_space.shape).to(device)
             elif key in ["collected_env_steps"]:
                 storage[agent][key] = torch.zeros((num_envs)).to(device)
             elif key in ["returns", "advantages"]:
@@ -100,6 +107,7 @@ def build_config(args):
         config["lr"] = args.lr
         config["gae"] = args.gae
         config["gae_lambda"] = args.gae_lambda
+        config["gamma"] = args.gamma
         config["num_minibatches"] = args.num_minibatches
         config["update_epochs"] = args.update_epochs
         config["norm_adv"] = args.norm_adv
@@ -128,7 +136,8 @@ def handle_dones(dones):
         if key == "__all__":
             continue
         else:
-            dones_out[key] = torch.tensor(dones[key].astype(float), dtype=torch.float32)
+            #dones_out[key] = torch.tensor(dones[key].astype(float), dtype=torch.float32)
+            dones_out[key] = torch.tensor(dones[key], dtype=torch.float32)
     return dones_out
 
 
@@ -136,11 +145,13 @@ def print_info(storage, epoch):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
-    for a in range(len(storage["agent_0"]["rewards"])):
-        completed = sum(storage["agent_0"]["dones"][a].cpu().numpy().astype(float))
-        reward = sum(storage["agent_0"]["rewards"][a].cpu().numpy().astype(float))
-        success_rate = completed / reward
-        end_of_episode_info["agent_{0}".format*a] = {"completed": completed,
+    for a in storage.keys():
+        #print(storage[a]["rewards"])
+        completed = torch.sum(storage[a]["dones"])
+        reward = torch.sum(storage[a]["rewards"])
+        print(reward, completed)
+        success_rate = reward / completed
+        end_of_episode_info["agent_{0}".format(a)] = {"completed": completed,
                                                      "reward": reward,
                                                      "success_rate": success_rate}
         

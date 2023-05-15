@@ -37,7 +37,7 @@ class LSTMAgent(nn.Module):
         self.critic = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 1), std=1)
 
     def get_states(self, x, lstm_state, done):
-        hidden = self.cnn(x.transpose(1, 3))
+        hidden = self.cnn(x.squeeze().transpose(1, 3))
         hidden = F.relu(self.linear_in(hidden))
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
