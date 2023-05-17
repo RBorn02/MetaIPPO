@@ -45,17 +45,18 @@ def get_init_tensors(config, storage, env, agent):
 def truncate_storage(storage, config):
     """Get the actual training data for each environment and truncate to steps_per_env"""
     rollout_steps = config["rollout_steps"]
+    next_step_storage = {"agent_{0}".format(a):{} for a in range(config["env_config"]["num_agents"])}
     num_envs = config["env_config"]["num_envs"]
     steps_per_env = int(rollout_steps // num_envs)
-
     for agent in storage.keys():
         for key in storage[agent].keys():
             if key in ["obs", "dones", "rewards", "actions", "values", "logprobs"]:
                 shape = storage[agent][key].shape
+                next_step_storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][rollout_steps:rollout_steps + num_envs].reshape((-1,) + shape[1:])
                 storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][:rollout_steps].reshape((-1,) + shape[1:])
             else:
                 continue
-    return storage
+    return storage, next_step_storage
 
 def reset_storage(storage, config, env):
     """Reset the storage dict to all zeros. LSTM state is not reset across epochs!!"""
@@ -141,21 +142,28 @@ def handle_dones(dones):
     return dones_out
 
 
-def print_info(storage, epoch):
+def print_info(storage, next_dones, epoch, success_rate_dict):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
     for a in storage.keys():
         #print(storage[a]["rewards"])
-        completed = torch.sum(storage[a]["dones"])
+        completed = torch.sum(torch.cat((storage[a]["dones"][1:], next_dones[a]), dim=0))
         reward = torch.sum(storage[a]["rewards"])
         print(reward, completed)
         success_rate = reward / completed
+        success_rate_dict[a].append(success_rate)
+        if epoch > 25:
+           average_success_rate = sum(success_rate_dict[a][-25:]) / 25
+        else:
+            average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
+            
         end_of_episode_info["agent_{0}".format(a)] = {"completed": completed,
                                                      "reward": reward,
-                                                     "success_rate": success_rate}
+                                                     "success_rate": success_rate,
+                                                     "average_success_rate": average_success_rate}
         
-        
-        print("Agent_{0}: Completed {1} Episodes; Total Reward: {2}; Success Rate: {3}".format(a, completed, reward, success_rate))
+        print("Agent_{0}: Completed {1} Episodes; Total Reward: {2}; Success Rate This Epoch: {3}; Average Success Rate: {4}".format(a, 
+                                                                                            completed, reward, success_rate, average_success_rate))
     return end_of_episode_info
 

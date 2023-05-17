@@ -194,7 +194,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
         self.agent_ids = set()
         
         self.engine = Engine(
-            playground=self.playground, time_limit=self.timelimit
+            playground=self.playground, time_limit=self.timelimit + 1
         )
         
         
@@ -209,7 +209,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
             reward=rewards[i],
             physical_shape="rectangle",
             texture=possible_textures[i],
-            size=(40, 20))
+            size=(100, 100))
             #goal_dict["zone_{0}".format(i)] = zone
             self.playground.add_element(zone, possible_positions[i])
         

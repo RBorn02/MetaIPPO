@@ -30,11 +30,16 @@ class LSTM_PPO_Policy():
         num_steps = self.config["rollout_steps"] // self.config["env_config"]["num_envs"]
     
         with torch.no_grad():
+            # TODO: Adapt this for the case with less then 100 percent coop. Doesn't work for other cases!!!!
+            # Should probably work to collect an extra step during training and then using this extra step for
+            # next value and next done
             next_value = self.agent.get_value(
                 next_obs,
                 next_lstm_state,
                 next_done,
             ).reshape(1, -1)
+            #next_value = next_step_storage["values"].reshape(1, -1)
+            #next_done = next_step_storage["dones"].reshape(1, -1)
             if self.config["gae"]:
                 advantages = torch.zeros_like(rewards).to(self.config["device"])
                 lastgaelam = 0
@@ -43,7 +48,7 @@ class LSTM_PPO_Policy():
                         nextnonterminal = 1.0 - next_done
                         nextvalues = next_value
                     else:
-                        nextnonterminal = 1.0 - dones[t + 1] #Maybe need to change this because of done order (to t)
+                        nextnonterminal = 1.0 - dones[t + 1] 
                         nextvalues = values[t + 1]
                     delta = rewards[t] + self.config["gamma"] * nextvalues * nextnonterminal - values[t]
                     advantages[t] = lastgaelam = delta + self.config["gamma"] * self.config["gae_lambda"] * nextnonterminal * lastgaelam
