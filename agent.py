@@ -10,6 +10,11 @@ class LSTMAgent(nn.Module):
         self.model_config = config["model_config"]
         self.observation_shape = env.vector_env.observation_space.shape
         self.action_space_shape = env.vector_env.action_space.shape
+        
+        if self.model_config["use_last_action_reward"]:
+            lstm_in_size = self.model_config["lstm_in_size"] + np.prod(self.action_space_shape) + 1
+        else:
+            lstm_in_size = self.model_config["lstm_in_size"]
 
         self.cnn = nn.Sequential(
             self.layer_init(nn.Conv2d(self.observation_shape[2], self.model_config["channel_1"], 8, stride=4)),
@@ -22,7 +27,7 @@ class LSTMAgent(nn.Module):
         )
 
         self.linear_in = nn.Linear(self.get_lin_input(self.observation_shape), self.model_config["lstm_in_size"])
-        self.lstm = nn.LSTM(self.model_config["lstm_in_size"], self.model_config["lstm_hidden_size"], 
+        self.lstm = nn.LSTM(lstm_in_size, self.model_config["lstm_hidden_size"], 
                             num_layers=self.model_config["lstm_layers"])
         
         for name, param in self.lstm.named_parameters():
@@ -36,9 +41,11 @@ class LSTMAgent(nn.Module):
 
         self.critic = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 1), std=1)
 
-    def get_states(self, x, lstm_state, done):
+    def get_states(self, x, lstm_state, done, last_action, last_reward):
         hidden = self.cnn(x.squeeze().transpose(1, 3))
         hidden = F.relu(self.linear_in(hidden))
+        if self.model_config["use_last_action_reward"]:
+            hidden = torch.cat([hidden, last_action, last_reward], dim=1)
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
         hidden = hidden.reshape((-1, batch_size, self.lstm.input_size))
@@ -62,12 +69,12 @@ class LSTMAgent(nn.Module):
         return layer
 
     
-    def get_value(self, x, lstm_state, done):
-        hidden, _ = self.get_states(x, lstm_state, done)
+    def get_value(self, x, lstm_state, done, last_action, last_reward):
+        hidden, _ = self.get_states(x, lstm_state, done, last_action, last_reward)
         return self.critic(hidden)
 
-    def get_action_and_value(self, x, lstm_state, done, action=None):
-        hidden, lstm_state = self.get_states(x, lstm_state, done)
+    def get_action_and_value(self, x, lstm_state, done, last_action, last_reward, action=None):
+        hidden, lstm_state = self.get_states(x, lstm_state, done, last_action, last_reward)
         action_mean = self.actor_mean(hidden)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)

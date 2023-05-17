@@ -127,6 +127,7 @@ def build_config(args):
         config["model_config"]["channel_1"] = args.channel_1
         config["model_config"]["channel_2"] = args.channel_2
         config["model_config"]["channel_3"] = args.channel_3
+        config["model_config"]["use_last_action_reward"] = args.use_last_action_reward
 
     return config
 
@@ -148,9 +149,8 @@ def print_info(storage, next_dones, epoch, success_rate_dict):
     print("Epoch: {0}".format(epoch))
     for a in storage.keys():
         #print(storage[a]["rewards"])
-        completed = torch.sum(torch.cat((storage[a]["dones"][1:], next_dones[a]), dim=0))
-        reward = torch.sum(storage[a]["rewards"])
-        print(reward, completed)
+        completed = torch.sum(torch.cat((storage[a]["dones"][1:].cpu(), next_dones[a]), dim=0))
+        reward = torch.sum(storage[a]["rewards"].cpu())
         success_rate = reward / completed
         success_rate_dict[a].append(success_rate)
         if epoch > 25:
