@@ -28,7 +28,7 @@ class LSTM_PPO_Policy():
         dones = storage["dones"].to(device)
         values = storage["values"].to(device)
         next_lstm_state = storage["next_lstm_state"]
-        num_steps = self.config["rollout_steps"] // self.config["env_config"]["num_envs"]
+        num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         next_obs = next_obs.to(device)
         next_done = next_done.to(device)
@@ -94,7 +94,7 @@ class LSTM_PPO_Policy():
         values = storage["values"]
         advantages = storage["advantages"]
         returns = storage["returns"]
-        num_steps = self.config["rollout_steps"] // self.config["env_config"]["num_envs"]
+        num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         
         b_obs = obs.reshape((-1,) + self.observation_shape)
@@ -108,14 +108,14 @@ class LSTM_PPO_Policy():
         b_values = values.reshape(-1)
 
        
-        assert self.config["env_config"]["num_envs"] % self.config["num_minibatches"] == 0
-        envsperbatch = self.config["env_config"]["num_envs"] // self.config["num_minibatches"]
-        envinds = np.arange(self.config["env_config"]["num_envs"])
-        flatinds = np.arange(self.config["batch_size"]).reshape(num_steps, self.config["env_config"]["num_envs"])
+        assert self.config["env_config"]["num_envs"] * self.config["num_workers"] % self.config["num_minibatches"] == 0
+        envsperbatch = self.config["env_config"]["num_envs"] * self.config["num_workers"] // self.config["num_minibatches"]
+        envinds = np.arange(self.config["env_config"]["num_envs"] * self.config["num_workers"])
+        flatinds = np.arange(self.config["batch_size"]).reshape(num_steps, self.config["env_config"]["num_envs"] * self.config["num_workers"])
         clipfracs = []
         for epoch in range(self.config["update_epochs"]):
             np.random.shuffle(envinds)
-            for start in range(0, self.config["env_config"]["num_envs"], envsperbatch):
+            for start in range(0, self.config["env_config"]["num_envs"] * self.config["num_workers"], envsperbatch):
                 end = start + envsperbatch
                 mbenvinds = envinds[start:end]
                 mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
