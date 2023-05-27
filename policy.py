@@ -34,8 +34,8 @@ class LSTM_PPO_Policy():
         next_done = next_done.to(device)
         
         actions = storage["actions"]
-        prev_actions = torch.zeros_like(actions[0]).to(device)
-        prev_rewards = torch.zeros_like(rewards[0]).unsqueeze(dim=1).to(device)
+        prev_actions = actions[-1]
+        prev_rewards = rewards[-1].unsqueeze(dim=1)
     
         with torch.no_grad():
             # TODO: Adapt this for the case with less then 100 percent coop. Doesn't work for other cases!!!!
@@ -81,6 +81,11 @@ class LSTM_PPO_Policy():
         """Takes in the stored rollout and trains the policy
            Based on https://iclr-blog-track.github.io/2022/03/25/ppo-implementation-details/"""
         
+        loss_ls = []
+        pg_loss_ls = []
+        v_loss_ls = []
+        entropy_ls = []
+        
         device = self.config["device"]
 
         initial_lstm_state = storage["initial_lstm_state"]
@@ -107,9 +112,11 @@ class LSTM_PPO_Policy():
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
+        print(self.agent.actor_logstd)
+
        
         assert self.config["env_config"]["num_envs"] * self.config["num_workers"] % self.config["num_minibatches"] == 0
-        envsperbatch = self.config["env_config"]["num_envs"] * self.config["num_workers"] // self.config["num_minibatches"]
+        envsperbatch = (self.config["env_config"]["num_envs"] * self.config["num_workers"]) // self.config["num_minibatches"]
         envinds = np.arange(self.config["env_config"]["num_envs"] * self.config["num_workers"])
         flatinds = np.arange(self.config["batch_size"]).reshape(num_steps, self.config["env_config"]["num_envs"] * self.config["num_workers"])
         clipfracs = []
@@ -168,3 +175,11 @@ class LSTM_PPO_Policy():
                 loss.backward()
                 nn.utils.clip_grad_norm_(self.agent.parameters(), self.config["max_grad_norm"])
                 self.optimizer.step()
+                
+                loss_ls.append(loss.item())
+                pg_loss_ls.append(pg_loss.item())
+                v_loss_ls.append(v_loss.item())
+                entropy_ls.append(entropy_loss.item())
+    
+        #Return the mean of the losses
+        return np.mean(loss_ls), np.mean(pg_loss_ls), np.mean(v_loss_ls), np.mean(entropy_ls)

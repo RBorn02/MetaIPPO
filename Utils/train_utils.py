@@ -56,6 +56,34 @@ def truncate_storage(storage, config):
                 continue
     return storage, next_step_storage
 
+def build_storage_from_batch(batch, config):
+    """Takes the batch returned by multiprocessing queue and builds a storage dict"""
+    storage_out = {}
+    next_obs = {}
+    next_dones = {}
+    success_rate = {}
+    for a in range(config["env_config"]["num_agents"]):
+        agent = "agent_{0}".format(a)
+        storage_out[agent] = {}
+        storage_out[agent]["obs"] = torch.cat([batch[i][0][agent]["obs"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["dones"] = torch.cat([batch[i][0][agent]["dones"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["next_lstm_state"] = (torch.cat([batch[i][0][agent]["next_lstm_state"][0] for i in range(len(batch))], dim=1),
+                                                 torch.cat([batch[i][0][agent]["next_lstm_state"][1] for i in range(len(batch))], dim=1))
+        storage_out[agent]["initial_lstm_state"] = (torch.cat([batch[i][0][agent]["initial_lstm_state"][0] for i in range(len(batch))], dim=1),
+                                                    torch.cat([batch[i][0][agent]["initial_lstm_state"][1] for i in range(len(batch))], dim=1))
+        storage_out[agent]["rewards"] = torch.cat([batch[i][0][agent]["rewards"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["actions"] = torch.cat([batch[i][0][agent]["actions"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["values"] = torch.cat([batch[i][0][agent]["values"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["logprobs"] = torch.cat([batch[i][0][agent]["logprobs"] for i in range(len(batch))], dim=1)
+
+        next_obs[agent] = torch.cat([batch[i][1][agent] for i in range(len(batch))], dim=1)
+        next_dones[agent] = torch.cat([batch[i][2][agent] for i in range(len(batch))], dim=1)
+        success_rate[agent] = sum([batch[i][3][agent] for i in range(len(batch))])
+    
+    return storage_out, next_obs, next_dones, success_rate
+        
+    
+
 def reset_storage(storage, config, env):
     """Reset the storage dict to all zeros. LSTM state is not reset across epochs!!"""
     num_steps = config["rollout_steps"]
@@ -93,6 +121,8 @@ def build_config(args):
         config["env_config"]["timelimit"] = args.time_limit
         config["env_config"]["coop_chance"] = args.coop_chance
         config["env_config"]["seed"] = args.seed
+        config["env_config"]["single_goal"] = args.single_goal
+        config["env_config"]["single_reward"] = args.single_reward
 
         config["total_steps"] = args.total_steps
         config["rollout_steps"] = args.rollout_steps
@@ -138,7 +168,7 @@ def handle_dones(dones):
     return dones_out
 
 
-def print_info(storage, next_dones, epoch, success_rate_dict):
+def print_info(storage, next_dones, epoch, average_reward_dict, best_average_reward_dict, success_rate_dict, best_sucess_rate_dict, infos):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
@@ -146,45 +176,36 @@ def print_info(storage, next_dones, epoch, success_rate_dict):
         #print(storage[a]["rewards"])
         completed = torch.sum(torch.cat((storage[a]["dones"][1:].cpu(), next_dones[a]), dim=0))
         reward = torch.sum(storage[a]["rewards"].cpu())
-        success_rate = reward / completed
+        episodic_reward = reward / completed
+        successes = infos[a]
+        success_rate = successes / completed
+        average_reward_dict[a].append(episodic_reward)
         success_rate_dict[a].append(success_rate)
         if epoch > 25:
+           average_reward = sum(average_reward_dict[a][-25:]) / 25
            average_success_rate = sum(success_rate_dict[a][-25:]) / 25
         else:
+            average_reward = sum(average_reward_dict[a]) / len(average_reward_dict[a])
             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
+        if average_reward > best_average_reward_dict[a]:
+            best_average_reward_dict[a] = average_reward
+ 
+        if average_success_rate > best_sucess_rate_dict[a]:
+            best_sucess_rate_dict[a] = average_success_rate
             
         end_of_episode_info["agent_{0}".format(a)] = {"completed": completed,
                                                      "reward": reward,
-                                                     "success_rate": success_rate,
-                                                     "average_success_rate": average_success_rate}
+                                                     "average_reward": episodic_reward,
+                                                     "average_success_rate": average_reward,}
         
-        print("Agent_{0}: Completed {1} Episodes; Total Reward: {2}; Success Rate This Epoch: {3}; Average Success Rate: {4}".format(a, 
-                                                                                            completed, reward, success_rate, average_success_rate))
+        print("Agent_{0}: Completed {1} Episodes; Total Reward: {2}; Average Reward This Epoch: {3}; Rolling Average Reward: {4}".format(a, 
+                                                                                            completed, reward, episodic_reward, average_reward))
+        print("Successes: {0}; Success Rate: {1}; Rolling Average Sucess Rate: {2}; Best Rolling Average Sucess Rate: {3}".format(successes, success_rate, 
+                                                                                                                            average_success_rate, best_sucess_rate_dict[a]))
+        print("Best Average Reward: {0}".format(best_average_reward_dict[a]))
     return end_of_episode_info
 
 
-def build_storage_from_batch(batch, config):
-    """Takes the batch returned by multiprocessing queue and builds a storage dict"""
-    storage_out = {}
-    next_obs = {}
-    next_dones = {}
-    for a in range(config["env_config"]["num_agents"]):
-        agent = "agent_{0}".format(a)
-        storage_out[agent] = {}
-        storage_out[agent]["obs"] = torch.cat([batch[i][0][agent]["obs"] for i in range(len(batch))], dim=1)
-        storage_out[agent]["dones"] = torch.cat([batch[i][0][agent]["dones"] for i in range(len(batch))], dim=1)
-        storage_out[agent]["next_lstm_state"] = (torch.cat([batch[i][0][agent]["next_lstm_state"][0] for i in range(len(batch))], dim=1),
-                                                 torch.cat([batch[i][0][agent]["next_lstm_state"][1] for i in range(len(batch))], dim=1))
-        storage_out[agent]["initial_lstm_state"] = (torch.cat([batch[i][0][agent]["initial_lstm_state"][0] for i in range(len(batch))], dim=1),
-                                                    torch.cat([batch[i][0][agent]["initial_lstm_state"][1] for i in range(len(batch))], dim=1))
-        storage_out[agent]["rewards"] = torch.cat([batch[i][0][agent]["rewards"] for i in range(len(batch))], dim=1)
-        storage_out[agent]["actions"] = torch.cat([batch[i][0][agent]["actions"] for i in range(len(batch))], dim=1)
-        storage_out[agent]["values"] = torch.cat([batch[i][0][agent]["values"] for i in range(len(batch))], dim=1)
-        storage_out[agent]["logprobs"] = torch.cat([batch[i][0][agent]["logprobs"] for i in range(len(batch))], dim=1)
 
-        next_obs[agent] = torch.cat([batch[i][1][agent] for i in range(len(batch))], dim=1)
-        next_dones[agent] = torch.cat([batch[i][2][agent] for i in range(len(batch))], dim=1)
-    
-    return storage_out, next_obs, next_dones
         
     

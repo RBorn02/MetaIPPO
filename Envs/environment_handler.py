@@ -23,7 +23,7 @@ class EnvironmentHandler():
            a tuple of dicts (observations, rewards, dones, truncateds, infos)"""
         actions = {e: {"agent_{0}".format(a): actions[e][a] for a in range(self.env_config["num_agents"])} for e in range(self.env_config["num_envs"])}
         self.vector_env.send_actions(actions)
-        obs_in, rewards_in, dones_in, truncateds, infos = self.vector_env.poll()[:-1]
+        obs_in, rewards_in, dones_in, truncateds, info = self.vector_env.poll()[:-1]
 
         #obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
         #    np.array([obs[i]["agent_{0}".format(a)] for i in range(self.env_config["num_envs"])]))
@@ -50,14 +50,17 @@ class EnvironmentHandler():
             obs = torch.zeros((1, self.env_config["num_envs"]) + self.observation_space.shape)
             rewards = torch.zeros(1, (self.env_config["num_envs"]))
             dones = torch.ones(1, (self.env_config["num_envs"]))
+            infos = torch.zeros(1, (self.env_config["num_envs"]))
             for env in obs_in.keys():
                 if "agent_{0}".format(a) in obs_in[env].keys():
                     obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)])
                     rewards[0][env] = rewards_in[env]["agent_{0}".format(a)]
                     dones[0][env] = 1.0 if dones_in[env]["agent_{0}".format(a)] else 0.0 #Return 1.0 for all steps that agent is done, not only one time
+                    infos[0][env] = info[env]["agent_{0}".format(a)]
             obs_dict["agent_{0}".format(a)] = obs
             rewards_dict["agent_{0}".format(a)] = rewards
             dones_dict["agent_{0}".format(a)] = dones
+            infos_dict["agent_{0}".format(a)] = infos
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             
         
@@ -98,3 +101,5 @@ class EnvironmentHandler():
     
     def _get_num_envs(self):
         return self.env_config["num_envs"]
+    
+

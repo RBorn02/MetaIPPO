@@ -192,9 +192,11 @@ class MultiAgentLandmarks(MultiAgentEnv):
         self.playground = SingleRoom(size=(200, 200))
         self.goal_space = self._create_goal_space()
         self.agent_ids = set()
+        self.single_goal = config["single_goal"]
+        self.single_reward = config["single_reward"]
         
         self.engine = Engine(
-            playground=self.playground, time_limit=self.timelimit + 1
+            playground=self.playground, time_limit=(self.timelimit + 1)
         )
         
         
@@ -209,7 +211,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
             reward=rewards[i],
             physical_shape="rectangle",
             texture=possible_textures[i],
-            size=(100, 100))
+            size=(60, 40))
             #goal_dict["zone_{0}".format(i)] = zone
             self.playground.add_element(zone, possible_positions[i])
         
@@ -217,10 +219,11 @@ class MultiAgentLandmarks(MultiAgentEnv):
             (100, 100), area_shape="rectangle", size=(50, 50)
         )
         
-        possible_agent_colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+        possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
         agent_dict = {}
         
         self.agent_goal_dict = {}
+        self.agent_first_reward_dict = {}
         agent_ls = []
         for i in range(self.num_agents):
             agent = BaseAgent(
@@ -228,8 +231,8 @@ class MultiAgentLandmarks(MultiAgentEnv):
             controller=External(),
             interactive=False, #Agent doesn't need to activate anything
             name="agent_{0}".format(i),
-            texture=UniqueCenteredStripeTexture(size=6,
-                color=possible_agent_colors[i], color_stripe=possible_agent_colors[-i], size_stripe=4))
+            texture=UniqueCenteredStripeTexture(size=10,
+                color=possible_agent_colors[i], color_stripe=possible_agent_colors[i], size_stripe=4))
             agent_dict["agent_{0}".format(i)] = agent
             self.agent_goal_dict["agent_{0}".format(i)] = np.zeros(self.num_goals, dtype=int)
             self.agent_ids.add("agent_{0}".format(i))
@@ -239,7 +242,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
             ignore_walls = [elem for elem in self.playground.elements if isinstance(elem, Wall)]
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
-            agent.add_sensor(FullPlaygroundSensor(agent, normalize=True, only_front=True))
+            agent.add_sensor(FullPlaygroundSensor(agent, normalize=True))
             self.playground.add_agent(agent, agent_sampler)
 
             
@@ -279,9 +282,6 @@ class MultiAgentLandmarks(MultiAgentEnv):
         self.engine.update_observations()
         observations = self.process_obs()
         rewards, dones, truncated, info = self.compute_reward()
-        #print(dones)
-        #if len(self._active_agents) < 2:
-        #    print(rewards, observations)
         return observations, rewards, dones, truncated, info
 
     
@@ -289,7 +289,14 @@ class MultiAgentLandmarks(MultiAgentEnv):
         self.engine.reset()
         info = {}
         self._active_agents = self.playground.agents.copy()
-        self.sample_goals()
+        if self.coop_chance > np.random.uniform():
+            self.episode_coop = True
+        else:
+            self.episode_coop = False
+        for agent in self._active_agents:
+            self.agent_first_reward_dict[agent.name] = True
+        needs_goal = [agent.name for agent in self.playground.agents]
+        self.sample_goals(needs_goal, reset=True)
         self.engine.elapsed_time = 0
         self.episodes += 1
         self.engine.update_observations()
@@ -314,6 +321,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
         truncateds = {}
         info = {}
         achieved_goal_list = []
+        needs_new_goal = []
         for agent in self._active_agents:
             self.check_achieved_goal(agent, individual_achieved_goals)
             achieved_goal_list.append(individual_achieved_goals[agent.name])
@@ -334,18 +342,36 @@ class MultiAgentLandmarks(MultiAgentEnv):
                 and np.all(self.agent_goal_dict[agent.name] == collective_achieved_goal)):
                 print("collective goal achieved")
             rewards[agent.name] = reward
-            done = bool(reward) or self.playground.done or not self.engine.game_on
+            if self.agent_first_reward_dict[agent.name] and bool(reward):
+                self.agent_first_reward_dict[agent.name] = False
+                info[agent.name] = 1.0
+            else:
+                info[agent.name] = 0.0
+
+            if self.single_goal:
+                if self.single_reward:
+                    done = bool(reward) or self.playground.done or not self.engine.game_on
+                else:
+                    rewards[agent.name] = 0.1 * reward
+                    done = self.playground.done or not self.engine.game_on
+            else:
+                if bool(reward):
+                   needs_new_goal.append(agent.name)
+                done = self.playground.done or not self.engine.game_on
+
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
             truncateds[agent.name] = truncated
             # logging which goal line the agent achieved (-1 means no goal line)
-            info[agent.name] = {"goal_line": agent.reward - 1}
+            # info[agent.name] = {"goal_line": agent.reward - 1}
         
         [
             self._active_agents.remove(agent)
             for agent in self._active_agents
             if dones[agent.name]
         ]
+        if len(needs_new_goal) >= 1:
+            self.sample_goals(needs_new_goal)
         dones["__all__"] = all(dones.values())
         truncateds["__all__"] = all(truncateds.values())
         return rewards, dones, truncateds, info
@@ -366,10 +392,14 @@ class MultiAgentLandmarks(MultiAgentEnv):
                 agent.reward = 6
             individual_achieved_goals[agent.name][agent.reward - 1] = 1
     
-    def sample_goals(self):
-        if self.coop_chance > np.random.uniform():
+    def sample_goals(self, needs_goal, reset=False):
+        if self.episode_coop:
             possible_goals = self.goal_space[(self.num_agents-1)*self.num_goals:]
-            goal = random.choice(possible_goals)
+            if reset is False:
+                possible_goals.remove(tuple(self.agent_goal_dict["agent_0"]))
+                goal = random.choice(possible_goals)
+            else:
+                goal = random.choice(possible_goals)
             for agent in self.playground.agents:
                 self.agent_goal_dict[agent.name] = np.array(goal, dtype=int)
         else:
@@ -381,7 +411,6 @@ class MultiAgentLandmarks(MultiAgentEnv):
                 possible_goals = [goal for goal in self.goal_space if sum(goal) < self.num_agents]
                 possible_single_goals = self.goal_space[:self.num_goals]
                 
-            needs_goal = [agent.name for agent in self.playground.agents]
             agents = needs_goal.copy()
             if 1 / self.num_agents > np.random.uniform():
                random.shuffle(agents)
@@ -389,7 +418,12 @@ class MultiAgentLandmarks(MultiAgentEnv):
                 #print(agent)
                 if agent in needs_goal:
                     needs_goal.remove(agent)
-                    goal = random.choice(possible_goals)
+                    agent_possible_goals = possible_goals.copy()
+                    if reset is False:
+                        agent_possible_goals.remove(tuple(self.agent_goal_dict[agent]))
+                        goal = random.choice(agent_possible_goals)
+                    else:
+                        goal = random.choice(agent_possible_goals)
                     if sum(goal) > 1 and len(needs_goal) > 1:
                         second_agent = random.choice(needs_goal)
                         needs_goal.remove(second_agent)
@@ -397,7 +431,12 @@ class MultiAgentLandmarks(MultiAgentEnv):
                         self.agent_goal_dict[second_agent] = np.array(goal, dtype=int)
                         possible_goals.remove(goal)
                     else:
-                        goal = random.choice(possible_single_goals)
+                        agent_possible_single_goals = possible_single_goals.copy()
+                        if reset is False:
+                            agent_possible_single_goals.remove(tuple(self.agent_goal_dict[agent]))
+                            goal = random.choice(agent_possible_goals)
+                        else:
+                            goal = random.choice(agent_possible_single_goals)
                         self.agent_goal_dict[agent] = np.array(goal, dtype=int)
                         #possible_single_goals.remove(goal)
     
@@ -813,32 +852,36 @@ class CustomRewardOnActivation(RewardOnActivation):
             
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
-    config = {"num_landmarks": 3,
+    config = {"num_landmarks": 4,
               "num_agents": 2,
               "timelimit": 1000,
               "coop_chance":0.0,
               "message_len": 3,
               "vocab_size": 3,
               "message_penalty": 0.02,
-              "seed": 42}
+              "seed": 42,
+              "single_goal": True,
+              "single_reward": False,}
     env = MultiAgentLandmarks(config)
     #print(env.action_space.sample())
     obs = env.reset()
     obs_sampled = env.observation_space.sample()
     for i in range(1000):
+        print(i)
         actions = {"agent_0": env.action_space.sample(),
                    "agent_1": env.action_space.sample(),}
     #               "agent_2": env.action_space.sample()}
-        #print(actions)
+        print(actions)
         obs, rewards, dones, _, info = env.step(actions)
-        print(dones)
+        #print(dones)
+        print(rewards)
         #print(info)
         #print(obs)
         #print(env.agent_goal_dict)
         #print(obs["agent_0"] == obs["agent_1"])
-        #img = env.render()
-        #plt.imshow(img)
-        #plt.show()
+        img = env.render()
+        plt.imshow(img)
+        plt.show()
     
     #config2 = {"num_goals": 3,
     #          "num_agents": 2,
