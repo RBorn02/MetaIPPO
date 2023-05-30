@@ -133,7 +133,8 @@ def rollout(pid, policy_dict, train_queue, done, config):
 
     next_obs, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
     next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])).to(device) for a in range(config["env_config"]["num_agents"])}
-    next_training = next_dones.copy()
+    last_actions = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["actions"][0].to(device) for a in range(config["env_config"]["num_agents"])}
+    last_rewards = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["rewards"][0].to(device) for a in range(config["env_config"]["num_agents"])}
     
     success_rate = {}
     achieved_goal = {}
@@ -152,71 +153,46 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 for a in range(config["env_config"]["num_agents"]):
                     next_agent_obs = next_obs["agent_{0}".format(a)].to(device)
                     next_agent_dones = next_dones["agent_{0}".format(a)].to(device)
-                    next_agent_training = next_training["agent_{0}".format(a)].to(device)
                     next_agent_lstm_state = storage["agent_{0}".format(a)]["next_lstm_state"]
+                    last_agent_actions = last_actions["agent_{0}".format(a)]
+                    last_agent_rewards = last_rewards["agent_{0}".format(a)]
                     
-                    storage["agent_{0}".format(a)]["obs"] = torch.cat((storage["agent_{0}".format(a)]["obs"], 
-                                                                    next_agent_obs), dim=0)
-                    storage["agent_{0}".format(a)]["dones"] = torch.cat((storage["agent_{0}".format(a)]["dones"], 
-                                                                        next_agent_dones), dim=0)
+                    storage["agent_{0}".format(a)]["obs"][rollout_step] = next_agent_obs
+                    storage["agent_{0}".format(a)]["dones"][rollout_step] = next_agent_dones
+                    storage["agent_{0}".format(a)]["last_actions"][rollout_step] = last_agent_actions
+                    storage["agent_{0}".format(a)]["last_rewards"][rollout_step] = last_agent_rewards
                 
                     #Get the actions from the policy
                     with torch.no_grad():
-                        #Handle the case where one agent is done while the other is still going. We only want to send 
-                        #env obs to policy if it is not done in this env instance. We collect data until all environments
-                        #have num (rollout_steps // num_envs) data points. Can be inefficient because some collected data will be discarded.
-                        #However, this makes updating the policy much simpler.
-                        
-                        not_dones_idx = torch.Tensor(torch.ones_like(next_agent_training.squeeze()) - next_agent_training.squeeze()).nonzero().squeeze()
-                        storage["agent_{0}".format(a)]["is_training"] = torch.cat((storage["agent_{0}".format(a)]["is_training"], 
-                                torch.ones_like(next_agent_training) - next_agent_training), dim=0)
-                        storage["agent_{0}".format(a)]["collected_env_steps"] += (torch.ones_like(next_agent_training) - next_agent_training).squeeze()
-
-                        action, log_prob, value, _ = get_init_tensors(config, storage, env, "agent_{0}".format(a))
-                        next_agent_lstm_state_in = (next_agent_lstm_state[0][:,not_dones_idx,:], next_agent_lstm_state[1][:,not_dones_idx,:])
-                        next_agent_obs = next_agent_obs[0][not_dones_idx]
-                        next_agent_dones = next_agent_dones[0][not_dones_idx]
-                        last_actions = storage["agent_{0}".format(a)]["actions"][rollout_step][not_dones_idx].to(device)
-                        last_rewards = storage["agent_{0}".format(a)]["rewards"][rollout_step][not_dones_idx].unsqueeze(dim=1).to(device)
-                        
-                        act_raw, log_prob_raw, _, val_raw, next_lstm_state_raw = policy_dict["agent_{0}".format(a)].get_action_and_value(
+                        action, log_prob, _, value, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                                                                                                                     next_agent_obs,
-                                                                                                                    next_agent_lstm_state_in,
+                                                                                                                    next_agent_lstm_state,
                                                                                                                     next_agent_dones,
-                                                                                                                    last_actions,
-                                                                                                                    last_rewards)
-                        
-                        action[:,not_dones_idx] = act_raw.unsqueeze(dim=0)
-                        log_prob[:,not_dones_idx] = log_prob_raw.unsqueeze(dim=0)
-                        value[:,not_dones_idx] = val_raw.transpose(0,1)
-                        next_agent_lstm_state[0][:,not_dones_idx,:] = next_lstm_state_raw[0]
-                        next_agent_lstm_state[1][:,not_dones_idx,:] = next_lstm_state_raw[1]
-                        
-                        #actions = {"agent_{0}".format(a): action}
-
-                        storage["agent_{0}".format(a)]["values"] = torch.cat((storage["agent_{0}".format(a)]["values"], value), dim=0)
+                                                                                                                    last_agent_actions,
+                                                                                                                    last_agent_rewards.unsqueeze(dim=1))
                     
-                    storage["agent_{0}".format(a)]["actions"] = torch.cat((storage["agent_{0}".format(a)]["actions"], action), dim=0)
-                    storage["agent_{0}".format(a)]["logprobs"] = torch.cat((storage["agent_{0}".format(a)]["logprobs"], log_prob), dim=0)
-
+                    storage["agent_{0}".format(a)]["values"][rollout_step] = value.transpose(0, 1)
+                    storage["agent_{0}".format(a)]["actions"][rollout_step] = action
+                    storage["agent_{0}".format(a)]["logprobs"][rollout_step] = log_prob
                     storage["agent_{0}".format(a)]["next_lstm_state"] = (next_agent_lstm_state[0], next_agent_lstm_state[1])
 
                 #Take a step in the environment
-                actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step + 1].unsqueeze(dim=1) #Indexing error? Should be rollout plus 1?
+                actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
                                     for a in range(config["env_config"]["num_agents"])], dim=1)
         
                 next_obs, rewards, dones, infos = env.step(actions.cpu())
-                next_training = dones.copy()
+
                 
                 #Handle the dones and convert the bools to binary tensors
                 next_dones = handle_dones(dones)
                 
-
-                #Store the rewards
+                #Store the rewards, success rate, goal line and handle past actions and rewards
                 for a in range(config["env_config"]["num_agents"]):
-                    storage["agent_{0}".format(a)]["rewards"] = torch.cat((storage["agent_{0}".format(a)]["rewards"], 
-                                                                        rewards["agent_{0}".format(a)].to(device)), dim=0)
+                    storage["agent_{0}".format(a)]["rewards"][rollout_step] = rewards["agent_{0}".format(a)].to(device)
                     
+                    last_actions["agent_{0}".format(a)] = storage["agent_{0}".format(a)]["actions"][rollout_step].to(device)
+                    last_rewards["agent_{0}".format(a)] = storage["agent_{0}".format(a)]["rewards"][rollout_step].to(device)
+
                     success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
                     for e in range(config["env_config"]["num_envs"]):
                         idx = infos["agent_{0}".format(a)]["goal_line"][0][e].squeeze()
@@ -232,25 +208,12 @@ def rollout(pid, policy_dict, train_queue, done, config):
                         reset_obs , _ = env.reset(e)
                         for a in range(config["env_config"]["num_agents"]):
                             next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
-                            next_training["agent_{0}".format(a)][0][e] = 0.0
-                        #for a in range(config["env_config"]["num_agents"]):
-                        #    next_dones["agent_{0}".format(a)][e] = 0.0
 
-                    
-
-                #If we have collected enough data for each env for each agent, break the loop
-                rollout_step += 1
-                condition_ls = []
-                for a in range(config["env_config"]["num_agents"]):
-                    condition = storage["agent_{0}".format(a)]["collected_env_steps"] >= config["rollout_steps"] // (config["env_config"]["num_envs"] * config["num_workers"])
-                    condition_ls.append(condition.all())
                 
                 #Hold training for the worker if enough data is collected and put it into the training queue
-                if all(condition_ls):
-                    storage, _ = truncate_storage(storage, config)
+                if rollout_step >= config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]):
                     train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success), block=True)
                     done[pid] = 1
-                    storage = reset_storage(storage, config, env)
                     rollout_step = 0
                     #Last lstm state is the initial lstm state for the next rollout
                     for a in range(config["env_config"]["num_agents"]):
@@ -258,10 +221,11 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                                                 storage["agent_{0}".format(a)]["next_lstm_state"][1].clone())
                         success_rate["agent_{0}".format(a)] = 0.0
                         achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
-                        achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
+                        achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
                     
                     print("Worker {0} finished collecting data".format(pid))
                 else:
+                    rollout_step += 1
                     continue
             
             else:

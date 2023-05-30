@@ -92,9 +92,9 @@ class LSTM_PPO_Policy():
         initial_lstm_state = storage["initial_lstm_state"]
         obs = storage["obs"]
         actions = storage["actions"]
-        prev_actions = torch.cat((torch.zeros_like(actions[0]).unsqueeze(dim=0).to(device), actions[:-1]), dim=0)
+        prev_actions = storage["last_actions"]
         rewards = storage["rewards"]
-        prev_rewards = torch.cat((torch.zeros(1, rewards[0].shape[0], 1).to(device), rewards[:-1].unsqueeze(dim=2)), dim=0)
+        prev_rewards = storage["last_rewards"]
         logprobs = storage["logprobs"]
         dones = storage["dones"]
         values = storage["values"]

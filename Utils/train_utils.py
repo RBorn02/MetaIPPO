@@ -3,7 +3,7 @@ import yaml
 
 def build_storage(config, env):
     """Builds a dict for the storage of the rollout data for each policy"""
-    num_steps = config["rollout_steps"]
+    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_agents"])
     num_envs = config["env_config"]["num_envs"]
     device = config["device"]
     num_layers = config["model_config"]["lstm_layers"]
@@ -12,18 +12,20 @@ def build_storage(config, env):
     storage = {}
     for a in range(config["env_config"]["num_agents"]):
         storage["agent_{0}".format(a)] = {
-                    "obs": torch.zeros((1, num_envs) + env.observation_space.shape).to(device),
-                    "dones":torch.zeros((1, num_envs)).to(device),
-                    "is_training":torch.zeros((1, num_envs)).to(device),
-                    "collected_env_steps":torch.zeros((num_envs)).to(device),
+                    "obs": torch.zeros((num_steps, num_envs) + env.observation_space.shape).to(device),
+                    "dones":torch.zeros((num_steps, num_envs)).to(device),
+                    #"is_training":torch.zeros((1, num_envs)).to(device),
+                    #"collected_env_steps":torch.zeros((num_envs)).to(device),
                     "next_lstm_state":(
                                         torch.zeros(num_layers, num_envs, hidden_size).to(device),
                                         torch.zeros(num_layers, num_envs, hidden_size).to(device),
                                         ),
-                    "rewards":torch.zeros((1, num_envs)).to(device),
-                    "actions":torch.zeros((1, num_envs) + env.action_space.shape).to(device),
-                    "values":torch.zeros((1, num_envs)).to(device),
-                    "logprobs":torch.zeros((1, num_envs)).to(device),
+                    "rewards":torch.zeros((num_steps, num_envs)).to(device),
+                    "last_rewards":torch.zeros((num_steps, num_envs)).to(device),
+                    "actions":torch.zeros((num_steps, num_envs) + env.action_space.shape).to(device),
+                    "last_actions":torch.zeros((num_steps, num_envs) + env.action_space.shape).to(device),
+                    "values":torch.zeros((num_steps, num_envs)).to(device),
+                    "logprobs":torch.zeros((num_steps, num_envs)).to(device),
                     }
               
     return storage
@@ -51,7 +53,7 @@ def truncate_storage(storage, config):
             if key in ["obs", "dones", "rewards", "actions", "values", "logprobs"]:
                 shape = storage[agent][key].shape
                 next_step_storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][rollout_steps:rollout_steps + num_envs].reshape((-1,) + shape[1:])
-                storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][:rollout_steps].reshape((-1,) + shape[1:])
+                storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()].reshape((-1,) + shape[1:])
             else:
                 continue
     return storage, next_step_storage
@@ -62,6 +64,8 @@ def build_storage_from_batch(batch, config):
     next_obs = {}
     next_dones = {}
     success_rate = {}
+    achieved_goal = {}
+    achieved_goal_success = {}
     for a in range(config["env_config"]["num_agents"]):
         agent = "agent_{0}".format(a)
         storage_out[agent] = {}
@@ -72,34 +76,36 @@ def build_storage_from_batch(batch, config):
         storage_out[agent]["initial_lstm_state"] = (torch.cat([batch[i][0][agent]["initial_lstm_state"][0] for i in range(len(batch))], dim=1),
                                                     torch.cat([batch[i][0][agent]["initial_lstm_state"][1] for i in range(len(batch))], dim=1))
         storage_out[agent]["rewards"] = torch.cat([batch[i][0][agent]["rewards"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["last_rewards"] = torch.cat([batch[i][0][agent]["last_rewards"] for i in range(len(batch))], dim=1)
         storage_out[agent]["actions"] = torch.cat([batch[i][0][agent]["actions"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["last_actions"] = torch.cat([batch[i][0][agent]["last_actions"] for i in range(len(batch))], dim=1)
         storage_out[agent]["values"] = torch.cat([batch[i][0][agent]["values"] for i in range(len(batch))], dim=1)
         storage_out[agent]["logprobs"] = torch.cat([batch[i][0][agent]["logprobs"] for i in range(len(batch))], dim=1)
 
         next_obs[agent] = torch.cat([batch[i][1][agent] for i in range(len(batch))], dim=1)
         next_dones[agent] = torch.cat([batch[i][2][agent] for i in range(len(batch))], dim=1)
         success_rate[agent] = sum([batch[i][3][agent] for i in range(len(batch))])
+        achieved_goal[agent] = torch.sum(torch.cat([batch[i][4][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
+        achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
     
-    return storage_out, next_obs, next_dones, success_rate
+    return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success
         
     
 
 def reset_storage(storage, config, env):
     """Reset the storage dict to all zeros. LSTM state is not reset across epochs!!"""
-    num_steps = config["rollout_steps"]
+    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_agents"])
     num_envs = config["env_config"]["num_envs"]
     device = config["device"]
 
     for agent in storage.keys():
         for key in storage[agent].keys():
             if key in ["obs"]:
-                storage[agent][key] = torch.zeros((1, num_envs) + env.observation_space.shape).to(device)
-            elif key in ["dones", "is_training", "rewards", "values", "logprobs"]:
-                storage[agent][key] = torch.zeros((1, num_envs)).to(device)
+                storage[agent][key] = torch.zeros((num_steps, num_envs) + env.observation_space.shape).to(device)
+            elif key in ["dones", "rewards", "values", "logprobs"]:
+                storage[agent][key] = torch.zeros((num_steps, num_envs)).to(device)
             elif key in ["actions"]:
-                storage[agent][key] = torch.zeros((1, num_envs) + env.action_space.shape).to(device)
-            elif key in ["collected_env_steps"]:
-                storage[agent][key] = torch.zeros((num_envs)).to(device)
+                storage[agent][key] = torch.zeros((num_steps, num_envs) + env.action_space.shape).to(device)
             else:
                 continue
     return storage
@@ -123,7 +129,8 @@ def build_config(args):
         config["env_config"]["seed"] = args.seed
         config["env_config"]["single_goal"] = args.single_goal
         config["env_config"]["single_reward"] = args.single_reward
-
+        
+        config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
         config["rollout_steps"] = args.rollout_steps
         config["batch_size"] = args.batch_size
@@ -168,16 +175,18 @@ def handle_dones(dones):
     return dones_out
 
 
-def print_info(storage, next_dones, epoch, average_reward_dict, best_average_reward_dict, success_rate_dict, best_sucess_rate_dict, infos):
+def print_info(storage, next_dones, epoch, average_reward_dict, best_average_reward_dict, 
+               success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
+    id = 0
     for a in storage.keys():
         #print(storage[a]["rewards"])
         completed = torch.sum(torch.cat((storage[a]["dones"][1:].cpu(), next_dones[a]), dim=0))
         reward = torch.sum(storage[a]["rewards"].cpu())
         episodic_reward = reward / completed
-        successes = infos[a]
+        successes = success[a]
         success_rate = successes / completed
         average_reward_dict[a].append(episodic_reward)
         success_rate_dict[a].append(success_rate)
@@ -193,16 +202,32 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
         if average_success_rate > best_sucess_rate_dict[a]:
             best_sucess_rate_dict[a] = average_success_rate
             
-        end_of_episode_info["agent_{0}".format(a)] = {"completed": completed,
+        end_of_episode_info["agent_{0}".format(id)] = {"completed": completed,
                                                      "reward": reward,
                                                      "average_reward": episodic_reward,
-                                                     "average_success_rate": average_reward,}
+                                                     "average_success_rate": average_reward,
+                                                     "successes": successes,
+                                                     "success_rate": success_rate,
+                                                     "rolling_average_reward": average_reward,
+                                                     "rolling_average_success_rate": average_success_rate,
+                                                     "best_average_reward": best_average_reward_dict[a],
+                                                     "best_success_rate": best_sucess_rate_dict[a],
+                                                     "achieved_goal": achieved_goal[a],
+                                                     "achieved_goal_success": achieved_goal_success[a]}
         
-        print("Agent_{0}: Completed {1} Episodes; Total Reward: {2}; Average Reward This Epoch: {3}; Rolling Average Reward: {4}".format(a, 
-                                                                                            completed, reward, episodic_reward, average_reward))
+        print("Agent_{0}: Completed {1} Episodes; ".format(id, completed))
+
+        print("Total Reward: {0}; Average Reward This Epoch: {1}; Rolling Average Reward: {2} Best Average Reward: {3}".format(reward, 
+                                                                                    episodic_reward, average_reward, best_average_reward_dict[a]))
+
         print("Successes: {0}; Success Rate: {1}; Rolling Average Sucess Rate: {2}; Best Rolling Average Sucess Rate: {3}".format(successes, success_rate, 
-                                                                                                                            average_success_rate, best_sucess_rate_dict[a]))
-        print("Best Average Reward: {0}".format(best_average_reward_dict[a]))
+                                                                                                            average_success_rate, best_sucess_rate_dict[a]))
+        for g in range(achieved_goal[a].shape[0]):
+            print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
+        
+        id += 1
+        
+    
     return end_of_episode_info
 
 
