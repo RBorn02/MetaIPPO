@@ -83,7 +83,7 @@ class MultiGoalEnv(gym.Env):
         spawn_area_agent = CoordinateSampler(
             center_area, area_shape="rectangle", size=size_area
         )
-        self.playground.add_agent(self.agent, spawn_area_agent)
+        self.playground.add_agent(self.agent, spawn_area_agent,)
 
         # Init engine
         self.engine = Engine(
@@ -189,19 +189,19 @@ class MultiAgentLandmarks(MultiAgentEnv):
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
-        self.playground = SingleRoom(size=(200, 200))
+        self.playground = SingleRoom(size=(200, 200), wall_depth=0)
         self.goal_space = self._create_goal_space()
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
         
         self.engine = Engine(
-            playground=self.playground, time_limit=(self.timelimit + 1)
+            playground=self.playground, time_limit=(self.timelimit + 1),  
         )
         
         
-        possible_positions = [((30, 20),0), ((30, 180),0), ((170, 20),0), ((170, 180), 0),
-                              ((30, 100), 0), ((170, 100), 0)]
+        possible_positions = [((20, 10),0), ((20, 190),0), ((180, 10),0), ((180, 190), 0),
+                              ((20, 100), 0), ((180, 100), 0)]
         possible_textures = [[255, 0, 0], [0, 255, 0], [0, 0, 255], [255, 255, 0], [255, 0, 255],
                              [0, 255, 255]]
         rewards = [1e0, 1e2, 1e4, 1e6, 1e8, 1e10]
@@ -211,12 +211,12 @@ class MultiAgentLandmarks(MultiAgentEnv):
             reward=rewards[i],
             physical_shape="rectangle",
             texture=possible_textures[i],
-            size=(60, 40))
+            size=(40, 20))
             #goal_dict["zone_{0}".format(i)] = zone
             self.playground.add_element(zone, possible_positions[i])
         
         agent_sampler = CoordinateSampler(
-            (100, 100), area_shape="rectangle", size=(50, 50)
+            (100, 100), area_shape="rectangle", size=(125, 125)
         )
         
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
@@ -227,7 +227,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
         agent_ls = []
         for i in range(self.num_agents):
             agent = BaseAgent(
-            #radius=10,
+            #radius=40,
             controller=External(),
             interactive=False, #Agent doesn't need to activate anything
             name="agent_{0}".format(i),
@@ -243,7 +243,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
             agent.add_sensor(FullPlaygroundSensor(agent, normalize=True))
-            self.playground.add_agent(agent, agent_sampler)
+            self.playground.add_agent(agent, agent_sampler, allow_overlapping=True)
 
             
         actuators = agent.controller.controlled_actuators
@@ -344,9 +344,9 @@ class MultiAgentLandmarks(MultiAgentEnv):
             rewards[agent.name] = reward
             if self.agent_first_reward_dict[agent.name] and bool(reward):
                 self.agent_first_reward_dict[agent.name] = False
-                info[agent.name] = 1.0
+                info[agent.name] = {"success": 1.0, "goal_line": agent.reward - 1, "true_goal": self.agent_goal_dict[agent.name]}
             else:
-                info[agent.name] = 0.0
+                info[agent.name] = {"success": 0.0, "goal_line": agent.reward - 1, "true_goal": self.agent_goal_dict[agent.name]}
 
             if self.single_goal:
                 if self.single_reward:
@@ -362,8 +362,6 @@ class MultiAgentLandmarks(MultiAgentEnv):
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
             truncateds[agent.name] = truncated
-            # logging which goal line the agent achieved (-1 means no goal line)
-            # info[agent.name] = {"goal_line": agent.reward - 1}
         
         [
             self._active_agents.remove(agent)
@@ -391,6 +389,7 @@ class MultiAgentLandmarks(MultiAgentEnv):
             else:
                 agent.reward = 6
             individual_achieved_goals[agent.name][agent.reward - 1] = 1
+
     
     def sample_goals(self, needs_goal, reset=False):
         if self.episode_coop:

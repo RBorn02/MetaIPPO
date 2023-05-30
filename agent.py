@@ -27,6 +27,22 @@ class LSTMAgent(nn.Module):
             nn.Flatten(),
         )
 
+        self.critic = nn.Sequential(
+            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, 1), std=1.0),
+        )
+
+        self.actor_mean = nn.Sequential(
+            self.layer_init(nn.Linear(np.array(self.model_config["lstm_hidden_size"]).prod(), 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, 64)),
+            nn.Tanh(),
+            self.layer_init(nn.Linear(64, np.prod(self.action_space_shape)), std=0.01),
+        )
+
         self.linear_in = nn.Linear(self.get_lin_input(self.observation_shape), self.model_config["lstm_in_size"])
         self.lstm = nn.LSTM(lstm_in_size, self.model_config["lstm_hidden_size"], 
                             num_layers=self.model_config["lstm_layers"])
@@ -37,12 +53,12 @@ class LSTMAgent(nn.Module):
             elif "weight" in name:
                 nn.init.orthogonal_(param, 1.0)
 
-        self.actor_mean_in = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 16)) #Change std?
-        self.actor_mean_out = self.layer_init(nn.Linear(16, np.prod(self.action_space_shape)), std=0.01)
-        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(self.action_space_shape)))
+        #self.actor_mean_in = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 128)) #Change std?
+        #self.actor_mean_out = self.layer_init(nn.Linear(128, np.prod(self.action_space_shape)), std=0.01)
+        self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(self.action_space_shape))) 
 
-        self.critic_in = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 16), std=1)
-        self.critic_out = self.layer_init(nn.Linear(16, 1), std=1)
+        #self.critic_in = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 128), std=1)
+        #self.critic_out = self.layer_init(nn.Linear(128, 1), std=1)
 
     def get_states(self, x, lstm_state, done, last_action, last_reward):
         hidden = self.cnn(x.squeeze().transpose(1, 3))
@@ -74,20 +90,23 @@ class LSTMAgent(nn.Module):
     
     def get_value(self, x, lstm_state, done, last_action, last_reward):
         hidden, _ = self.get_states(x, lstm_state, done, last_action, last_reward)
-        hidden = self.critic_in(hidden)
-        return self.critic_out(F.relu(hidden))
+        #hidden = self.critic_in(hidden)
+        #return self.critic_out(F.relu(hidden))
+        return self.critic(hidden)
 
     def get_action_and_value(self, x, lstm_state, done, last_action, last_reward, action=None):
         hidden, lstm_state = self.get_states(x, lstm_state, done, last_action, last_reward)
-        action_hidden = self.actor_mean_in(hidden)
-        action_mean = self.actor_mean_out(F.relu(action_hidden))
+        #action_hidden = self.actor_mean_in(hidden)
+        #action_mean = self.actor_mean_out(F.relu(action_hidden))
+        action_mean = self.actor_mean(hidden)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        value_hidden = self.critic_in(hidden)
-        value = self.critic_out(F.relu(value_hidden))
+        #value_hidden = self.critic_in(hidden)
+        #value = self.critic_out(F.relu(value_hidden))
+        value = self.critic(hidden)
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value, lstm_state
 
     def get_lin_input(self, obs_shape):

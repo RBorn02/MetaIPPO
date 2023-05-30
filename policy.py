@@ -85,6 +85,7 @@ class LSTM_PPO_Policy():
         pg_loss_ls = []
         v_loss_ls = []
         entropy_ls = []
+        predicted_values_mean = []
         
         device = self.config["device"]
 
@@ -167,6 +168,7 @@ class LSTM_PPO_Policy():
                     v_loss = 0.5 * v_loss_max.mean()
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
+                predicted_values_mean.append(newvalue.mean().item())
 
                 entropy_loss = entropy.mean()
                 loss = pg_loss - self.config["ent_coef"] * entropy_loss + v_loss * self.config["vf_coef"]
@@ -180,6 +182,20 @@ class LSTM_PPO_Policy():
                 pg_loss_ls.append(pg_loss.item())
                 v_loss_ls.append(v_loss.item())
                 entropy_ls.append(entropy_loss.item())
+
+                if epoch == 0 and start == 0:
+                    print("New values mean: {0}; Old values mean: {1}".format(newvalue.mean().item(), b_values[mb_inds].mean().item()))
+                    if all(newvalue == b_values[mb_inds]):
+                        print("New values and old values are the same")
+            
+        y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
+        var_y = np.var(y_true)
+        explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
+        print("Predicted values mean: {0}; Returns mean: {1}; Advantages mean: {2}; Values mean: {3}".format(np.mean(predicted_values_mean), 
+                                 np.mean(b_returns.cpu().numpy()), np.mean(b_advantages.cpu().numpy()), np.mean(b_values.cpu().numpy())))
+        print("Actions mean: {0}; Actions std: {1}".format(np.mean(b_actions.cpu().numpy()), np.std(b_actions.cpu().numpy())))
+        print("Action logprob mean: {0}; Action logprob std: {1}".format(np.mean(b_logprobs.cpu().numpy()), np.std(b_logprobs.cpu().numpy())))
+
     
         #Return the mean of the losses
-        return np.mean(loss_ls), np.mean(pg_loss_ls), np.mean(v_loss_ls), np.mean(entropy_ls)
+        return np.mean(loss_ls), np.mean(pg_loss_ls), np.mean(v_loss_ls), np.mean(entropy_ls), explained_var, np.mean(clipfracs)
