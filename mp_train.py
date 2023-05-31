@@ -355,9 +355,11 @@ if __name__ == "__main__":
             if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
                 prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
                 for a in range(config["env_config"]["num_agents"]):
-                    save_path = os.path.join(run_path, "models_rew_{0}_ep_{1}".format(prev_best, update, a))
+                    save_path = os.path.join(run_path, "models".format(prev_best, update, a))
                     if not os.path.exists(save_path):
                         os.makedirs(save_path)
+                    else:
+                        os.rmdir(save_path + "/agent_{0}_model.pt".format(a))
                     torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
                                 "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
                                 save_path + "/agent_{0}_model.pt".format(a))
