@@ -1,9 +1,14 @@
 import torch
 import yaml
+import imageio
+import csv
+
+import numpy as np
+from collections.abc import Mapping
 
 def build_storage(config, env):
     """Builds a dict for the storage of the rollout data for each policy"""
-    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_agents"])
+    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_envs"])
     num_envs = config["env_config"]["num_envs"]
     device = config["device"]
     num_layers = config["model_config"]["lstm_layers"]
@@ -151,6 +156,7 @@ def build_config(args):
         config["target_kl"] = args.target_kl
         config["device"] = args.device
         config["num_workers"] = args.num_workers
+        config["record_video_every"] = args.record_video_every
 
         config["model_config"] = {}
         config["model_config"]["lstm_layers"] = args.lstm_layers
@@ -182,7 +188,6 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
     print("Epoch: {0}".format(epoch))
     id = 0
     for a in storage.keys():
-        #print(storage[a]["rewards"])
         completed = torch.sum(torch.cat((storage[a]["dones"][1:].cpu(), next_dones[a]), dim=0))
         reward = torch.sum(storage[a]["rewards"].cpu())
         episodic_reward = reward / completed
@@ -231,6 +236,85 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
     return end_of_episode_info
 
 
+def record_video(config, env, policy_dict, episodes, video_path, update):
+    """Records a video of the policy in the environment"""
+    num_steps = config["env_config"]["timelimit"] * episodes
+    frames = []
+    infos = []
+    next_obs, _ = env.reset(0)
 
-        
+    next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])) for a in range(config["env_config"]["num_agents"])}
+    past_actions = torch.zeros((num_steps, config["env_config"]["num_agents"]) + env.action_space.shape)
+    past_rewards = torch.zeros((num_steps, config["env_config"]["num_agents"]))
+    next_lstm_state = (torch.zeros(config["model_config"]["lstm_layers"], config["env_config"]["num_agents"], config["model_config"]["lstm_hidden_size"]),
+                            torch.zeros(config["model_config"]["lstm_layers"], config["env_config"]["num_agents"], config["model_config"]["lstm_hidden_size"]))
     
+    for s in range(num_steps):
+        frame = env.vector_env.envs[0].render() * 255.0
+        #Convert the frame to uint8 and handle the normalization
+        frames.append(frame.astype(np.uint8))
+
+        actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space.shape)
+        with torch.no_grad():
+            for a in range(config["env_config"]["num_agents"]):
+                actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
+                    next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
+                    (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
+                    next_dones["agent_{0}".format(a)].unsqueeze(dim=0),
+                    past_actions[s, a].unsqueeze(dim=0),
+                    past_rewards[s, a].unsqueeze(dim=0).reshape(-1, 1),
+                    )
+                if s < num_steps - 1:
+                    past_actions[s + 1, a] = actions[:,a].squeeze(dim=0)
+                next_lstm_state[0][:,a] = next_agent_lstm_state[0]
+                next_lstm_state[1][:,a] = next_agent_lstm_state[1]
+   
+        next_obs, rewards, dones, info = env.step(actions)
+        next_dones = handle_dones(dones)
+        for a in range(config["env_config"]["num_agents"]):
+            if s < num_steps - 1:
+                past_rewards[s + 1, a] = rewards["agent_{0}".format(a)]
+            
+        infos.append(info)
+        if dones["__all__"]:
+            next_obs, _ = env.reset(0)
+    
+    #Create video from frames using different library than opencv
+    writer = imageio.get_writer(video_path + "video_epoch_{0}.mp4".format(update), fps=30, codec="libx264")
+    for frame in frames:
+        writer.append_data(frame)
+    writer.close()
+
+    save_info_to_csv(infos, video_path + "info_epoch_{0}.csv".format(update))
+
+
+def flatten_dict(data, parent_key='', sep='.'):
+    items = []
+    for k, v in data.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(flatten_dict(v, new_key, sep=sep).items())
+        elif isinstance(v, torch.Tensor):
+            # Convert Torch tensor to a NumPy array and then to a normal Python list
+            items.append((new_key, v.cpu().numpy().tolist()))
+        else:
+            items.append((new_key, v))
+    return dict(items)
+
+def save_info_to_csv(infos, save_path):
+    # Flatten the nested dictionaries in each info dictionary
+    flattened_infos = [flatten_dict(info) for info in infos]
+
+    # Extract the keys from the flattened dictionary
+    keys = list(flattened_infos[0].keys())
+
+    # Open the CSV file in write mode
+    with open(save_path, mode='w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=keys)
+
+        # Write the header row
+        writer.writeheader()
+
+        # Write each info dictionary as a row in the CSV file
+        for info in flattened_infos:
+            writer.writerow(info)

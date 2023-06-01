@@ -61,7 +61,10 @@ class LSTMAgent(nn.Module):
         #self.critic_out = self.layer_init(nn.Linear(128, 1), std=1)
 
     def get_states(self, x, lstm_state, done, last_action, last_reward):
-        hidden = self.cnn(x.squeeze().transpose(1, 3))
+        if len(x.shape) == 5:
+            hidden = self.cnn(x.squeeze().transpose(1, 3))
+        else:
+            hidden = self.cnn(x.transpose(1, 3))
         hidden = F.relu(self.linear_in(hidden))
         if self.model_config["use_last_action_reward"]:
             hidden = torch.cat([hidden, last_action, last_reward], dim=1)

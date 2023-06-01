@@ -118,7 +118,6 @@ class LSTM_PPO_Policy():
 
         print(self.agent.actor_logstd)
 
-       
         assert self.config["env_config"]["num_envs"] * self.config["num_workers"] % self.config["num_minibatches"] == 0
         envsperbatch = (self.config["env_config"]["num_envs"] * self.config["num_workers"]) // self.config["num_minibatches"]
         envinds = np.arange(self.config["env_config"]["num_envs"] * self.config["num_workers"])
@@ -172,13 +171,7 @@ class LSTM_PPO_Policy():
                 else:
                     v_loss = 0.5 * ((newvalue - b_returns[mb_inds]) ** 2).mean()
                 predicted_values_mean.append(newvalue.mean().item())
-                returns_mean.append(b_returns[mb_inds].mean().item())
-                old_values_mean.append(b_values[mb_inds].mean().item())
-                advantages_mean.append(b_advantages[mb_inds].mean().item())
-                #print(np.mean(predicted_values_mean.item()))
-                #print(np.mean(returns_mean))
-                #print(np.mean(old_values_mean))
-
+                
                 entropy_loss = entropy.mean()
                 loss = pg_loss - self.config["ent_coef"] * entropy_loss + v_loss * self.config["vf_coef"]
 
@@ -193,15 +186,15 @@ class LSTM_PPO_Policy():
                 entropy_ls.append(entropy_loss.item())
 
                 if epoch == 0 and start == 0:
-                    print("New values mean: {0}; Old values mean: {1}".format(newvalue.mean().item(), b_values[mb_inds].mean().item()))
+                    print("New values mean: {0}; Old values mean: {1}".format(newvalue.mean(), b_values[mb_inds].mean()))
                     if all(newvalue == b_values[mb_inds]):
                         print("New values and old values are the same")
-            
+
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
         explained_var = np.nan if var_y == 0 else 1 - np.var(y_true - y_pred) / var_y
-        print("Predicted values mean: {0}; Returns mean: {1}; Advantages mean: {2}; Values mean: {3}".format(np.mean(predicted_values_mean), 
-                                                                    np.mean(returns_mean), np.mean(advantages_mean), np.mean(old_values_mean)))
+        print("Predicted values mean: {0}; Returns mean: {1}; Advantages mean: {2}; Values mean: {3}".format(torch.Tensor(predicted_values_mean).mean(), 
+                                                                    b_returns.mean(), b_advantages.mean(), b_values.mean()))
         print("Actions mean: {0}; Actions std: {1}".format(b_actions.mean(), b_actions.std()))
         print("Action logprob mean: {0}; Action logprob std: {1}".format(b_logprobs.mean(), logprobs.std()))
 

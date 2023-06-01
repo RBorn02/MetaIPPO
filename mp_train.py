@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from policy import LSTM_PPO_Policy
 from agent import LSTMAgent
 from Envs.environment_handler import EnvironmentHandler
-from Utils.train_utils import build_config, build_storage, handle_dones, print_info, get_init_tensors, truncate_storage, reset_storage, build_storage_from_batch
+from Utils.train_utils import build_config, build_storage, handle_dones, print_info, get_init_tensors, truncate_storage, reset_storage, build_storage_from_batch, record_video
 
 parser = ArgumentParser()
 
@@ -78,6 +78,8 @@ parser.add_argument("--max_grad_norm", type=float, default=0.5,
                     help="the maximum norm for the gradient clipping")
 parser.add_argument("--target_kl", type=float, default=None,
                     help="the target KL divergence threshold")
+parser.add_argument("--record_video_every", type=int, default=10,
+                    help="Record a video every n episodes")
 
 # Model Specific arguments
 parser.add_argument("--channel_1", type=int, default=32,
@@ -211,7 +213,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
 
                 
                 #Hold training for the worker if enough data is collected and put it into the training queue
-                if rollout_step >= config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]):
+                if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
                     train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success), block=True)
                     done[pid] = 1
                     rollout_step = 0
@@ -308,6 +310,12 @@ if __name__ == "__main__":
                 batch.append(train_queue.get())
             start = time.time()
             storage, next_obs, next_dones, success_rate, goal_line, goal_line_success = build_storage_from_batch(batch, config)
+
+            if args.anneal_lr:
+                frac = 1.0 - (update - 1.0) / num_updates
+                lrnow = frac * config["lr"]
+                for a in range(config["env_config"]["num_agents"]):
+                    policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
       
             #Compute the advantages for each policy
             start = time.time()
@@ -358,14 +366,28 @@ if __name__ == "__main__":
                     save_path = os.path.join(run_path, "models".format(prev_best, update, a))
                     if not os.path.exists(save_path):
                         os.makedirs(save_path)
-                    else:
-                        os.rmdir(save_path + "/agent_{0}_model.pt".format(a))
+                    if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
+                        os.remove(save_path + "/agent_{0}_model.pt".format(a))
                     torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
                                 "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
                                 save_path + "/agent_{0}_model.pt".format(a))
                 print("Saved models for agents with average reward {0}".format(prev_best)) 
                                                                                                        
-                                                                                                       
+
+            #Record a video every n updates
+            if update % config["record_video_every"] == 0:
+                video_path = os.path.join(run_path, "Videos/")
+                
+                video_config = {}
+                video_config["env_config"] = config["env_config"].copy()
+                video_config["env_config"]["num_envs"] = 1
+                video_config["model_config"] = config["model_config"].copy()
+                video_env = EnvironmentHandler(video_config)
+
+                if not os.path.exists(video_path):
+                   os.makedirs(video_path)
+                record_video(video_config, video_env, policy_dict, 4, video_path, update)
+                print("Recorded video for update {0}".format(update))                                                                 
             
 
             #Restart the workers
