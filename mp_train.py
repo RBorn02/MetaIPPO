@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 from torch.utils.tensorboard import SummaryWriter
 
 from policy import LSTM_PPO_Policy
-from agent import LSTMAgent
+from agent import LSTMAgent, CommsLSTMAgent
 from Envs.environment_handler import EnvironmentHandler
 from Utils.train_utils import build_config, build_storage, handle_dones, print_info, get_init_tensors, truncate_storage, reset_storage, build_storage_from_batch, record_video
 
@@ -22,12 +22,18 @@ parser.add_argument("--config", default=None,
                     help="Optional path to the config yaml")
 parser.add_argument("--pretrained", default=None, type=str,
                     help="Optional path to the pretrained models")
+parser.add_argument("--debug", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Toggles debug mode, disables logging")
 parser.add_argument("--env_name", type=str, default="MultiAgentLandmarks",
                     help="Name of the environment to use")
 parser.add_argument("--num_agents", type=int, default=2,
                     help="Number of agents in the environment")
 parser.add_argument("--num_landmarks", type=int, default=3,
                     help="Number of landmarks in the environment")
+parser.add_argument("--message_length", type=int, default=3,
+                    help="Length of the message")
+parser.add_argument("--vocab_size", type=int, default=3,
+                    help="Size of the vocabulary")
 parser.add_argument("--num_envs", type=int, default=8,
                     help="Number of environments to vectorize")
 parser.add_argument("--time_limit", type=int, default=250,
@@ -111,16 +117,23 @@ device = config["device"]
 env = EnvironmentHandler(config)
 
 #Build the agents with their corresponding optimizers
-agent_dict = {"agent_{0}".format(a): LSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
+if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+    agent_dict = {"agent_{0}".format(a): CommsLSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
+else:
+    agent_dict = {"agent_{0}".format(a): LSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
 optimizer_dict = {"agent_{0}".format(a): {"optimizer": torch.optim.Adam(agent_dict["agent_{0}".format(a)].parameters(),
                                                                         config["lr"], eps=1e-5)} 
                         for a in range(config["env_config"]["num_agents"])}
 
+#Load the pretrained models if specified
 if config["pretrained"] is not None:
     for a in range(config["env_config"]["num_agents"]):
         agent_dict["agent_{0}".format(a)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
         optimizer_dict["agent_{0}".format(a)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
         print("Loaded pretrained model for agent {0}".format(a))
+
+    #Initiate the learning rate if pretrained
+    lrnow = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
 
 #Build the policies
 policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
@@ -129,26 +142,35 @@ policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_
 
 
 def rollout(pid, policy_dict, train_queue, done, config):
-    device = config["device"]
-    env = EnvironmentHandler(config)
-    storage = build_storage(config, env)
+    try:
+        device = config["device"]
+        env = EnvironmentHandler(config)
+        storage = build_storage(config, env)
 
-    next_obs, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
-    next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])).to(device) for a in range(config["env_config"]["num_agents"])}
-    last_actions = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["actions"][0].to(device) for a in range(config["env_config"]["num_agents"])}
-    last_rewards = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["rewards"][0].to(device) for a in range(config["env_config"]["num_agents"])}
-    
-    success_rate = {}
-    achieved_goal = {}
-    achieved_goal_success = {}
-    for a in range(config["env_config"]["num_agents"]):
-            storage["agent_{0}".format(a)]["initial_lstm_state"] = (storage["agent_{0}".format(a)]["next_lstm_state"][0].clone(),
-                                                                    storage["agent_{0}".format(a)]["next_lstm_state"][1].clone())
-            success_rate["agent_{0}".format(a)] = 0
-            achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
-            achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
+        if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+            next_obs, next_messages_in, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+        else:
+            next_obs, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
 
-    rollout_step = 0        
+        next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])).to(device) for a in range(config["env_config"]["num_agents"])}
+        last_actions = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["actions"][0].to(device) for a in range(config["env_config"]["num_agents"])}
+        last_rewards = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["rewards"][0].to(device) for a in range(config["env_config"]["num_agents"])}
+        
+        success_rate = {}
+        achieved_goal = {}
+        achieved_goal_success = {}
+        for a in range(config["env_config"]["num_agents"]):
+                storage["agent_{0}".format(a)]["initial_lstm_state"] = (storage["agent_{0}".format(a)]["next_lstm_state"][0].clone(),
+                                                                        storage["agent_{0}".format(a)]["next_lstm_state"][1].clone())
+                success_rate["agent_{0}".format(a)] = 0
+                achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
+                achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
+
+        rollout_step = 0
+    except Exception as e:
+            tb = traceback.format_exc()
+            print(tb)
+        
     while True:
         try:
             if bool(done[pid]) is False:
@@ -163,10 +185,25 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     storage["agent_{0}".format(a)]["dones"][rollout_step] = next_agent_dones
                     storage["agent_{0}".format(a)]["last_actions"][rollout_step] = last_agent_actions
                     storage["agent_{0}".format(a)]["last_rewards"][rollout_step] = last_agent_rewards
+
+                    if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                        next_agent_message_in = next_messages_in["agent_{0}".format(a)].to(device)
+                        storage["agent_{0}".format(a)]["message_in"][rollout_step] = next_agent_message_in
                 
                     #Get the actions from the policy
                     with torch.no_grad():
-                        action, log_prob, _, value, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
+                        if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                            
+                            action, log_prob, _, value, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
+                                                                                                                    next_agent_obs,
+                                                                                                                    next_agent_lstm_state,
+                                                                                                                    next_agent_dones,
+                                                                                                                    next_agent_message_in.squeeze(dim=0),
+                                                                                                                    last_agent_actions,
+                                                                                                                    last_agent_rewards.unsqueeze(dim=1))
+                            
+                        else:
+                            action, log_prob, _, value, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                                                                                                                     next_agent_obs,
                                                                                                                     next_agent_lstm_state,
                                                                                                                     next_agent_dones,
@@ -179,14 +216,28 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     storage["agent_{0}".format(a)]["next_lstm_state"] = (next_agent_lstm_state[0], next_agent_lstm_state[1])
 
                 #Take a step in the environment
-                actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
+                if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                    input_dict = {}
+                    actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step][:,:-config["env_config"]["message_length"]].unsqueeze(dim=1)
                                     for a in range(config["env_config"]["num_agents"])], dim=1)
-        
-                next_obs, rewards, dones, infos = env.step(actions.cpu())
+                    messages = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step][:,-config["env_config"]["message_length"]:].unsqueeze(dim=1)
+                                    for a in range(config["env_config"]["num_agents"])], dim=1)
+
+                    input_dict["actions"] = actions.cpu()
+                    input_dict["messages"] = messages.cpu()
+
+                    next_obs, next_messages_in, rewards, dones, infos = env.step(input_dict)
+                
+                else:
+                    actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
+                                    for a in range(config["env_config"]["num_agents"])], dim=1)
+    
+                    next_obs, rewards, dones, infos = env.step(actions.cpu())
 
                 
                 #Handle the dones and convert the bools to binary tensors
                 next_dones = handle_dones(dones)
+                
                 
                 #Store the rewards, success rate, goal line and handle past actions and rewards
                 for a in range(config["env_config"]["num_agents"]):
@@ -207,14 +258,22 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 #Reset Environments that are done
                 for e in range(config["env_config"]["num_envs"]):
                     if dones["__all__"][e]:
-                        reset_obs , _ = env.reset(e)
                         for a in range(config["env_config"]["num_agents"]):
-                            next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
+                            if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                                reset_obs, reset_messages, _ = env.reset(e)
+                                next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
+                                next_messages_in["agent_{0}".format(a)][0][e] = reset_messages["agent_{0}".format(a)].to(device)
+                            else:
+                                reset_obs, _ = env.reset(e)
+                                next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
 
                 
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
-                    train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success), block=True)
+                    if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_messages_in), block=True)
+                    else:
+                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success), block=True)
                     done[pid] = 1
                     rollout_step = 0
                     #Last lstm state is the initial lstm state for the next rollout
@@ -258,8 +317,8 @@ if __name__ == "__main__":
     #Tracking
     run_name = "PPO_{0}_{1}_{2}_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
                                             config["env_config"]["coop_chance"], time.time())
-    
-    wandb.init(
+    if not config["debug"]:
+        wandb.init(
             project="MetaIPPO",
             sync_tensorboard=True,
             config=config,
@@ -268,17 +327,17 @@ if __name__ == "__main__":
             save_code=True,
         )
     
-    writer = SummaryWriter(f"runs/{run_name}")
-    writer.add_text(
+        writer = SummaryWriter(f"runs/{run_name}")
+        writer.add_text(
         "hyperparameters",
         "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in config.items()])),
-    )
+        )
 
-    current_path = os.path.dirname(os.path.abspath(__file__))
-    runs_path = os.path.join(current_path, "PPO_Runs")
-    if not os.path.exists(runs_path):
-        os.mkdir(runs_path)
-    run_path = os.path.join(runs_path, run_name)
+        current_path = os.path.dirname(os.path.abspath(__file__))
+        runs_path = os.path.join(current_path, "PPO_Runs")
+        if not os.path.exists(runs_path):
+            os.mkdir(runs_path)
+        run_path = os.path.join(runs_path, run_name)
 
     #Build storage
     training_info = {}
@@ -309,7 +368,22 @@ if __name__ == "__main__":
             for i in range(config["num_workers"]):
                 batch.append(train_queue.get())
             start = time.time()
-            storage, next_obs, next_dones, success_rate, goal_line, goal_line_success = build_storage_from_batch(batch, config)
+
+            if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success = build_storage_from_batch(batch, config)
+            else:
+                storage, next_obs, next_dones, success_rate, goal_line, goal_line_success = build_storage_from_batch(batch, config)
+      
+            #Compute the advantages for each policy
+            for a in range(config["env_config"]["num_agents"]):
+                advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
+                                                                        storage["agent_{0}".format(a)],
+                                                                        next_obs["agent_{0}".format(a)],
+                                                                        next_dones["agent_{0}".format(a)],
+                                                                        next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] == "MultiAgentLandmarksComm" else None,)
+                
+                storage["agent_{0}".format(a)]["advantages"] = advantages
+                storage["agent_{0}".format(a)]["returns"] = returns
 
             if args.anneal_lr:
                 frac = 1.0 - (update - 1.0) / num_updates
@@ -317,23 +391,13 @@ if __name__ == "__main__":
                 for a in range(config["env_config"]["num_agents"]):
                     policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
       
-            #Compute the advantages for each policy
-            start = time.time()
-            for a in range(config["env_config"]["num_agents"]):
-                advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
-                                                                        storage["agent_{0}".format(a)],
-                                                                        next_obs["agent_{0}".format(a)],
-                                                                        next_dones["agent_{0}".format(a)])
-                
-                storage["agent_{0}".format(a)]["advantages"] = advantages
-                storage["agent_{0}".format(a)]["returns"] = returns
-
             #Update the policy parameters
             for a in range(config["env_config"]["num_agents"]):
                 loss, pg_loss, value_loss, entropy_loss, explained_variance, clip_fracs =  policy_dict["agent_{0}".format(a)].train(storage["agent_{0}".format(a)])
                 print("Agent_{0} loss total: {1}; pg loss: {2}; value loss: {3}; entropy loss: {4}; explained variance: {5}; clip fracs: {6}".format(a, loss, pg_loss, 
-                                                                                                                    value_loss, entropy_loss, explained_variance, clip_fracs))
-                wandb.log({"agent_{0}_loss".format(a): loss,
+                                                                                                                      value_loss, entropy_loss, explained_variance, clip_fracs))
+                if not config["debug"]:
+                    wandb.log({"agent_{0}_loss".format(a): loss,
                            "agent_{0}_pg_loss".format(a): pg_loss,
                            "agent_{0}_value_loss".format(a): value_loss,
                            "agent_{0}_entropy_loss".format(a): entropy_loss,
@@ -349,7 +413,8 @@ if __name__ == "__main__":
             
             for a in range(config["env_config"]["num_agents"]):
                 agent_info = training_info[update]["agent_{0}".format(a)]
-                wandb.log({"agent_{0}_average_reward".format(a): agent_info["average_reward"],
+                if not config["debug"]:
+                    wandb.log({"agent_{0}_average_reward".format(a): agent_info["average_reward"],
                            "agent_{0}_average_success_rate".format(a): agent_info["average_success_rate"],
                             "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
                             "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
@@ -360,34 +425,36 @@ if __name__ == "__main__":
                             "agent_{0}_rewards".format(a): agent_info["reward"]})
 
             #Save the models for the agents if the sum of the average rewards is greater than the best average reward
-            if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
-                prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
-                for a in range(config["env_config"]["num_agents"]):
-                    save_path = os.path.join(run_path, "models".format(prev_best, update, a))
-                    if not os.path.exists(save_path):
-                        os.makedirs(save_path)
-                    if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
-                        os.remove(save_path + "/agent_{0}_model.pt".format(a))
-                    torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
-                                "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
-                                save_path + "/agent_{0}_model.pt".format(a))
-                print("Saved models for agents with average reward {0}".format(prev_best)) 
+            if not config["debug"]:
+                if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
+                    prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
+                    for a in range(config["env_config"]["num_agents"]):
+                        save_path = os.path.join(run_path, "models".format(prev_best, update, a))
+                        if not os.path.exists(save_path):
+                            os.makedirs(save_path)
+                        if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
+                            os.remove(save_path + "/agent_{0}_model.pt".format(a))
+                        torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
+                                    "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
+                                    save_path + "/agent_{0}_model.pt".format(a))
+                    print("Saved models for agents with average reward {0}".format(prev_best)) 
                                                                                                        
 
             #Record a video every n updates
-            if update % config["record_video_every"] == 0:
-                video_path = os.path.join(run_path, "Videos/")
-                
-                video_config = {}
-                video_config["env_config"] = config["env_config"].copy()
-                video_config["env_config"]["num_envs"] = 1
-                video_config["model_config"] = config["model_config"].copy()
-                video_env = EnvironmentHandler(video_config)
+            if not config["debug"]:
+                if update % config["record_video_every"] == 0:
+                    video_path = os.path.join(run_path, "Videos/")
+                    
+                    video_config = {}
+                    video_config["env_config"] = config["env_config"].copy()
+                    video_config["env_config"]["num_envs"] = 1
+                    video_config["model_config"] = config["model_config"].copy()
+                    video_env = EnvironmentHandler(video_config)
 
-                if not os.path.exists(video_path):
-                   os.makedirs(video_path)
-                record_video(video_config, video_env, policy_dict, 4, video_path, update)
-                print("Recorded video for update {0}".format(update))                                                                 
+                    if not os.path.exists(video_path):
+                        os.makedirs(video_path)
+                    record_video(video_config, video_env, policy_dict, 4, video_path, update)
+                    print("Recorded video for update {0}".format(update))                                                                 
             
 
             #Restart the workers

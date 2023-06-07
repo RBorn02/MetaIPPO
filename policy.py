@@ -21,7 +21,7 @@ class LSTM_PPO_Policy():
         """Returns the action and value of the observation"""
         return self.agent.get_action_and_value(obs, lstm_state, done, last_action, last_reward, action)
     
-    def get_advantages(self, storage, next_obs, next_done):
+    def get_advantages(self, storage, next_obs, next_done, next_message=None):
         """Returns the advantage for the Policy"""
         device = self.config["device"]
         rewards = storage["rewards"].to(device)
@@ -32,24 +32,33 @@ class LSTM_PPO_Policy():
 
         next_obs = next_obs.to(device)
         next_done = next_done.to(device)
+        if next_message is not None:
+            next_message = next_message.to(device)
         
         actions = storage["actions"]
         prev_actions = actions[-1]
         prev_rewards = rewards[-1].unsqueeze(dim=1)
     
         with torch.no_grad():
-            # TODO: Adapt this for the case with less then 100 percent coop. Doesn't work for other cases!!!!
-            # Should probably work to collect an extra step during training and then using this extra step for
-            # next value and next done
-            next_value = self.agent.get_value(
-                next_obs,
-                next_lstm_state,
-                next_done,
-                prev_actions,
-                prev_rewards,
-            ).reshape(1, -1)
-            #next_value = next_step_storage["values"].reshape(1, -1)
-            #next_done = next_step_storage["dones"].reshape(1, -1)
+            if next_message is None:
+                next_value = self.agent.get_value(
+                    next_obs,
+                    next_lstm_state,
+                    next_done,
+                    prev_actions,
+                    prev_rewards,
+                ).reshape(1, -1)
+
+            else:
+                next_value = self.agent.get_value(
+                    next_obs,
+                    next_lstm_state,
+                    next_done,
+                    next_message.squeeze(dim=0),
+                    prev_actions,
+                    prev_rewards,
+                ).reshape(1, -1)
+
             if self.config["gae"]:
                 advantages = torch.zeros_like(rewards).to(self.config["device"])
                 lastgaelam = 0
@@ -116,6 +125,10 @@ class LSTM_PPO_Policy():
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
+        if self.config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+            b_messages_in = storage["message_in"].reshape((-1, self.config["env_config"]["message_length"]))
+            b_messages_in = b_messages_in.to(device)
+
         print(self.agent.actor_logstd)
 
         assert self.config["env_config"]["num_envs"] * self.config["num_workers"] % self.config["num_minibatches"] == 0
@@ -130,14 +143,26 @@ class LSTM_PPO_Policy():
                 mbenvinds = envinds[start:end]
                 mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
 
-                _, newlogprob, entropy, newvalue, _ = self.agent.get_action_and_value(
-                    b_obs[mb_inds],
-                    (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
-                    b_dones[mb_inds],
-                    b_prev_actions[mb_inds],
-                    b_prev_rewards[mb_inds].unsqueeze(dim=1),
-                     b_actions[mb_inds],
-                )
+                if self.config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                    _, newlogprob, entropy, newvalue, _ = self.agent.get_action_and_value(
+                        b_obs[mb_inds],
+                        (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
+                        b_dones[mb_inds],
+                        b_messages_in[mb_inds],
+                        b_prev_actions[mb_inds],
+                        b_prev_rewards[mb_inds].unsqueeze(dim=1),
+                        b_actions[mb_inds],
+                    )
+                else:
+                    _, newlogprob, entropy, newvalue, _ = self.agent.get_action_and_value(
+                        b_obs[mb_inds],
+                        (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
+                        b_dones[mb_inds],
+                        b_prev_actions[mb_inds],
+                        b_prev_rewards[mb_inds].unsqueeze(dim=1),
+                        b_actions[mb_inds],
+                    )
+
                 logratio = newlogprob - b_logprobs[mb_inds]
                 ratio = logratio.exp()
 
@@ -184,11 +209,6 @@ class LSTM_PPO_Policy():
                 pg_loss_ls.append(pg_loss.item())
                 v_loss_ls.append(v_loss.item())
                 entropy_ls.append(entropy_loss.item())
-
-                if epoch == 0 and start == 0:
-                    print("New values mean: {0}; Old values mean: {1}".format(newvalue.mean(), b_values[mb_inds].mean()))
-                    if all(newvalue == b_values[mb_inds]):
-                        print("New values and old values are the same")
 
         y_pred, y_true = b_values.cpu().numpy(), b_returns.cpu().numpy()
         var_y = np.var(y_true)
