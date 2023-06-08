@@ -17,6 +17,9 @@ class LSTMAgent(nn.Module):
         else:
             lstm_in_size = self.model_config["lstm_in_size"]
 
+        if self.model_config["contact"]:
+            lstm_in_size += 1
+
         self.cnn = nn.Sequential(
             self.layer_init(nn.Conv2d(self.observation_shape[2], self.model_config["channel_1"], 8, stride=4)),
             nn.ReLU(),
@@ -60,7 +63,7 @@ class LSTMAgent(nn.Module):
         #self.critic_in = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 128), std=1)
         #self.critic_out = self.layer_init(nn.Linear(128, 1), std=1)
 
-    def get_states(self, x, lstm_state, done, last_action, last_reward):
+    def get_states(self, x, lstm_state, done, last_action, last_reward, contact):
         if len(x.shape) == 5:
             hidden = self.cnn(x.squeeze().transpose(1, 3))
         else:
@@ -68,6 +71,8 @@ class LSTMAgent(nn.Module):
         hidden = F.relu(self.linear_in(hidden))
         if self.model_config["use_last_action_reward"]:
             hidden = torch.cat([hidden, last_action, last_reward], dim=1)
+        if self.model_config["contact"]:
+            hidden = torch.cat([hidden, contact], dim=1)
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
         hidden = hidden.reshape((-1, batch_size, self.lstm.input_size))
@@ -85,36 +90,30 @@ class LSTMAgent(nn.Module):
         new_hidden = torch.flatten(torch.cat(new_hidden), 0, 1)
         return new_hidden, lstm_state
     
-    def layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
-        torch.nn.init.orthogonal_(layer.weight, std)
-        torch.nn.init.constant_(layer.bias, bias_const)
-        return layer
-
-    
-    def get_value(self, x, lstm_state, done, last_action, last_reward):
-        hidden, _ = self.get_states(x, lstm_state, done, last_action, last_reward)
-        #hidden = self.critic_in(hidden)
-        #return self.critic_out(F.relu(hidden))
+    def get_value(self, x, lstm_state, done, last_action, last_reward, contact):
+        hidden, _ = self.get_states(x, lstm_state, done, last_action, last_reward, contact)
         return self.critic(hidden)
 
-    def get_action_and_value(self, x, lstm_state, done, last_action, last_reward, action=None):
-        hidden, lstm_state = self.get_states(x, lstm_state, done, last_action, last_reward)
-        #action_hidden = self.actor_mean_in(hidden)
-        #action_mean = self.actor_mean_out(F.relu(action_hidden))
+    def get_action_and_value(self, x, lstm_state, done, last_action, last_reward, contact, action=None):
+        hidden, lstm_state = self.get_states(x, lstm_state, done, last_action, last_reward, contact)
         action_mean = self.actor_mean(hidden)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
         probs = Normal(action_mean, action_std)
         if action is None:
             action = probs.sample()
-        #value_hidden = self.critic_in(hidden)
-        #value = self.critic_out(F.relu(value_hidden))
         value = self.critic(hidden)
         return action, probs.log_prob(action).sum(1), probs.entropy().sum(1), value, lstm_state
 
     def get_lin_input(self, obs_shape):
         o = self.cnn(torch.zeros(1, *obs_shape).transpose(3, 1))
         return int(np.prod(o.size()))
+    
+    def layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
+        torch.nn.init.orthogonal_(layer.weight, std)
+        torch.nn.init.constant_(layer.bias, bias_const)
+        return layer
+
     
 
 class CommsLSTMAgent(nn.Module):
@@ -129,10 +128,17 @@ class CommsLSTMAgent(nn.Module):
         
         
         
-        if self.model_config["use_last_action_reward"]:
+        if self.model_config["use_last_action_reward"] and self.model_config["one_hot_message"] is False:
             lstm_in_size = self.model_config["lstm_in_size"] + np.prod(self.action_space_shape) + np.prod(self.message_shape) + 1
+        elif self.model_config["use_last_action_reward"] and self.model_config["one_hot_message"]:
+            lstm_in_size = self.model_config["lstm_in_size"] +  np.prod(self.action_space_shape) + (env.base_env.vocab_size + 1) * env.base_env.message_len  + 1
+        elif self.model_config["use_last_action_reward"] is False and self.model_config["one_hot_message"]:
+            lstm_in_size = self.model_config["lstm_in_size"] + (env.base_env.vocab_size + 1) * env.base_env.message_len
         else:
-            lstm_in_size = self.model_config["lstm_in_size"]
+            lstm_in_size = self.model_config["lstm_in_size"] + np.prod(self.message_shape)
+        
+        if self.model_config["contact"]:
+            lstm_in_size += 1
 
         self.cnn = nn.Sequential(
             self.layer_init(nn.Conv2d(self.observation_shape[2], self.model_config["channel_1"], 8, stride=4)),
@@ -173,15 +179,25 @@ class CommsLSTMAgent(nn.Module):
         self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(self.movement_shape))) 
 
 
-    def get_states(self, x, lstm_state, done, message, last_action, last_reward):
+    def get_states(self, x, lstm_state, done, message, last_action, last_reward, contact):
         if len(x.shape) == 5:
             hidden = self.cnn(x.squeeze().transpose(1, 3))
         else:
             hidden = self.cnn(x.transpose(1, 3))
         hidden = F.relu(self.linear_in(hidden))
+
+        #Handle messages
+        if self.model_config["one_hot_message"]:
+            message = F.one_hot(message.long(), num_classes=self.message_space[0]).float()
+            message = message.reshape(message.shape[0], -1)
         
         if self.model_config["use_last_action_reward"]:
-            hidden = torch.cat([hidden, last_action, last_reward, message], dim=1)
+            hidden = torch.cat([hidden, last_action, last_reward], dim=1)
+
+        hidden = torch.cat([hidden, message], dim=1)
+
+        if self.model_config["contact"]:
+            hidden = torch.cat([hidden, contact], dim=1)
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
         hidden = hidden.reshape((-1, batch_size, self.lstm.input_size))
@@ -199,18 +215,12 @@ class CommsLSTMAgent(nn.Module):
         new_hidden = torch.flatten(torch.cat(new_hidden), 0, 1)
         return new_hidden, lstm_state
     
-    def layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
-        torch.nn.init.orthogonal_(layer.weight, std)
-        torch.nn.init.constant_(layer.bias, bias_const)
-        return layer
-
-    
-    def get_value(self, x, lstm_state, done, message, last_action, last_reward):
-        hidden, _ = self.get_states(x, lstm_state, done, message, last_action, last_reward)
+    def get_value(self, x, lstm_state, done, message, last_action, last_reward, contact):
+        hidden, _ = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact)
         return self.critic(hidden)
 
-    def get_action_and_value(self, x, lstm_state, done, message, last_action, last_reward, action=None):
-        hidden, lstm_state = self.get_states(x, lstm_state, done, message, last_action, last_reward)
+    def get_action_and_value(self, x, lstm_state, done, message, last_action, last_reward, contact, action=None):
+        hidden, lstm_state = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact)
         actions = self.actor_mean(hidden)
 
         # Sample movement actions
@@ -252,5 +262,10 @@ class CommsLSTMAgent(nn.Module):
     def get_lin_input(self, obs_shape):
         o = self.cnn(torch.zeros(1, *obs_shape).transpose(3, 1))
         return int(np.prod(o.size()))
+    
+    def layer_init(self, layer, std=np.sqrt(2), bias_const=0.0):
+        torch.nn.init.orthogonal_(layer.weight, std)
+        torch.nn.init.constant_(layer.bias, bias_const)
+        return layer
 
     

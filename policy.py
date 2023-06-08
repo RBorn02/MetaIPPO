@@ -13,15 +13,21 @@ class LSTM_PPO_Policy():
         self.observation_shape = self.agent.observation_shape
         self.single_action_shape = self.agent.action_space_shape
 
-    def get_value(self, obs, lstm_state, dones, last_action, last_reward):
+    def get_value(self, obs, lstm_state, dones, last_action, last_reward, contact, message=None):
         """Returns the value of the observation"""
-        return self.agent.get_value(obs, lstm_state, dones, last_action, last_reward)
+        if message is None:
+            return self.agent.get_value(obs, lstm_state, dones, last_action, last_reward, contact)
+        else:
+            return self.agent.get_value(obs, lstm_state, dones, message, last_action, last_reward, contact)
     
-    def get_action_and_value(self, obs, lstm_state, done, last_action, last_reward, action=None):
+    def get_action_and_value(self, obs, lstm_state, done, last_action, last_reward, contact, message=None, action=None):
         """Returns the action and value of the observation"""
-        return self.agent.get_action_and_value(obs, lstm_state, done, last_action, last_reward, action)
-    
-    def get_advantages(self, storage, next_obs, next_done, next_message=None):
+        if message is None:
+            return self.agent.get_action_and_value(obs, lstm_state, done, last_action, last_reward, contact, action)
+        else:
+            return self.agent.get_action_and_value(obs, lstm_state, done, message, last_action, last_reward, contact, action)
+        
+    def get_advantages(self, storage, next_obs, next_done, next_contact, next_message=None):
         """Returns the advantage for the Policy"""
         device = self.config["device"]
         rewards = storage["rewards"].to(device)
@@ -32,6 +38,7 @@ class LSTM_PPO_Policy():
 
         next_obs = next_obs.to(device)
         next_done = next_done.to(device)
+        next_contact = next_contact.to(device)
         if next_message is not None:
             next_message = next_message.to(device)
         
@@ -47,6 +54,7 @@ class LSTM_PPO_Policy():
                     next_done,
                     prev_actions,
                     prev_rewards,
+                    next_contact.transpose(0,1),
                 ).reshape(1, -1)
 
             else:
@@ -57,6 +65,7 @@ class LSTM_PPO_Policy():
                     next_message.squeeze(dim=0),
                     prev_actions,
                     prev_rewards,
+                    next_contact.transpose(0,1),
                 ).reshape(1, -1)
 
             if self.config["gae"]:
@@ -107,6 +116,7 @@ class LSTM_PPO_Policy():
         prev_actions = storage["last_actions"]
         rewards = storage["rewards"]
         prev_rewards = storage["last_rewards"]
+        contact = storage["contact"]
         logprobs = storage["logprobs"]
         dones = storage["dones"]
         values = storage["values"]
@@ -119,7 +129,8 @@ class LSTM_PPO_Policy():
         b_logprobs = logprobs.reshape(-1)
         b_actions = actions.reshape((-1,) + self.single_action_shape)
         b_prev_actions = prev_actions.reshape((-1,) + self.single_action_shape)
-        b_prev_rewards = prev_rewards.reshape(-1)
+        b_contact = contact.reshape(-1, 1)
+        b_prev_rewards = prev_rewards.reshape(-1, 1)
         b_advantages = advantages.reshape(-1)
         b_dones = dones.reshape(-1)
         b_returns = returns.reshape(-1)
@@ -150,7 +161,8 @@ class LSTM_PPO_Policy():
                         b_dones[mb_inds],
                         b_messages_in[mb_inds],
                         b_prev_actions[mb_inds],
-                        b_prev_rewards[mb_inds].unsqueeze(dim=1),
+                        b_prev_rewards[mb_inds],
+                        b_contact[mb_inds],
                         b_actions[mb_inds],
                     )
                 else:
@@ -159,7 +171,8 @@ class LSTM_PPO_Policy():
                         (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
                         b_dones[mb_inds],
                         b_prev_actions[mb_inds],
-                        b_prev_rewards[mb_inds].unsqueeze(dim=1),
+                        b_prev_rewards[mb_inds],
+                        b_contact[mb_inds],
                         b_actions[mb_inds],
                     )
 

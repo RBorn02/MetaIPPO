@@ -28,13 +28,13 @@ parser.add_argument("--env_name", type=str, default="MultiAgentLandmarks",
                     help="Name of the environment to use")
 parser.add_argument("--num_agents", type=int, default=2,
                     help="Number of agents in the environment")
-parser.add_argument("--num_landmarks", type=int, default=3,
+parser.add_argument("--num_landmarks", type=int, default=4,
                     help="Number of landmarks in the environment")
-parser.add_argument("--message_length", type=int, default=3,
+parser.add_argument("--message_length", type=int, default=1,
                     help="Length of the message")
 parser.add_argument("--vocab_size", type=int, default=3,
                     help="Size of the vocabulary")
-parser.add_argument("--num_envs", type=int, default=8,
+parser.add_argument("--num_envs", type=int, default=16,
                     help="Number of environments to vectorize")
 parser.add_argument("--time_limit", type=int, default=250,
                     help="Number of max steps per episode")
@@ -46,7 +46,7 @@ parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), defaul
                     help="Controls wether agents are done after receiving the reward or continue getting rewards")
 parser.add_argument("--total_steps", type=int, default=2.5*10e7,
                     help="Number of steps to train for")
-parser.add_argument("--rollout_steps", type=int, default=16000,
+parser.add_argument("--rollout_steps", type=int, default=32000,
                     help="Number of steps per rollout")
 parser.add_argument("--seed", type=int, default=1,
                     help="Random seed")
@@ -64,9 +64,9 @@ parser.add_argument("--gae", type=lambda x: bool(strtobool(x)), default=True, na
                     help="Use GAE for advantage computation")
 parser.add_argument("--gamma", type=float, default=0.99,
                     help="the discount factor gamma")
-parser.add_argument("--gae_lambda", type=float, default=0.95,
+parser.add_argument("--gae_lambda", type=float, default=1.0,
                     help="the lambda for the general advantage estimation")
-parser.add_argument("--num_minibatches", type=int, default=8,
+parser.add_argument("--num_minibatches", type=int, default=4,
                     help="the number of mini-batches")
 parser.add_argument("--update_epochs", type=int, default=4,
                     help="the K epochs to update the policy")
@@ -76,9 +76,9 @@ parser.add_argument("--clip_coef", type=float, default=0.1,
                     help="the surrogate clipping coefficient")
 parser.add_argument("--clip_vloss", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Toggles whether or not to use a clipped loss for the value function, as per the paper.")
-parser.add_argument("--ent_coef", type=float, default=0.01,
+parser.add_argument("--ent_coef", type=float, default=0.001,
                     help="coefficient of the entropy")
-parser.add_argument("--vf_coef", type=float, default=0.5,
+parser.add_argument("--vf_coef", type=float, default=1.0,
                     help="coefficient of the value function")
 parser.add_argument("--max_grad_norm", type=float, default=0.5,
                     help="the maximum norm for the gradient clipping")
@@ -88,20 +88,24 @@ parser.add_argument("--record_video_every", type=int, default=10,
                     help="Record a video every n episodes")
 
 # Model Specific arguments
-parser.add_argument("--channel_1", type=int, default=32,
+parser.add_argument("--channel_1", type=int, default=16,
                     help="Number of channels in the first convolutional layer")
-parser.add_argument("--channel_2", type=int, default=64,
+parser.add_argument("--channel_2", type=int, default=32,
                     help="Number of channels in the second convolutional layer")
-parser.add_argument("--channel_3", type=int, default=64,
+parser.add_argument("--channel_3", type=int, default=32,
                     help="Number of channels in the third convolutional layer")
-parser.add_argument("--lstm_in_size", type=int, default=256,
+parser.add_argument("--lstm_in_size", type=int, default=64,
                     help="Size of the LSTM hidden state")
-parser.add_argument("--lstm_hidden_size", type=int, default=256,
+parser.add_argument("--lstm_hidden_size", type=int, default=64,
                     help="Size of the LSTM hidden state")
 parser.add_argument("--lstm_layers", type=int, default=1,
                     help="Number of LSTM layers")
 parser.add_argument("--use_last_action_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Toggles whether or not to use the last action and reward as input to the LSTM")
+parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+                    help="Toggles whether or not to use contact information as input to the LSTM")
+parser.add_argument("--one_hot_message", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Toggles whether or not to use one hot encoding for the message")
 
 
 
@@ -148,9 +152,9 @@ def rollout(pid, policy_dict, train_queue, done, config):
         storage = build_storage(config, env)
 
         if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
-            next_obs, next_messages_in, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+            next_obs, next_messages_in, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
         else:
-            next_obs, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+            next_obs, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
 
         next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])).to(device) for a in range(config["env_config"]["num_agents"])}
         last_actions = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["actions"][0].to(device) for a in range(config["env_config"]["num_agents"])}
@@ -178,11 +182,13 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     next_agent_obs = next_obs["agent_{0}".format(a)].to(device)
                     next_agent_dones = next_dones["agent_{0}".format(a)].to(device)
                     next_agent_lstm_state = storage["agent_{0}".format(a)]["next_lstm_state"]
+                    next_agent_contact = next_contact["agent_{0}".format(a)].to(device)
                     last_agent_actions = last_actions["agent_{0}".format(a)]
                     last_agent_rewards = last_rewards["agent_{0}".format(a)]
                     
                     storage["agent_{0}".format(a)]["obs"][rollout_step] = next_agent_obs
                     storage["agent_{0}".format(a)]["dones"][rollout_step] = next_agent_dones
+                    storage["agent_{0}".format(a)]["contact"][rollout_step] = next_agent_contact
                     storage["agent_{0}".format(a)]["last_actions"][rollout_step] = last_agent_actions
                     storage["agent_{0}".format(a)]["last_rewards"][rollout_step] = last_agent_rewards
 
@@ -198,9 +204,10 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                                                                                     next_agent_obs,
                                                                                                                     next_agent_lstm_state,
                                                                                                                     next_agent_dones,
-                                                                                                                    next_agent_message_in.squeeze(dim=0),
                                                                                                                     last_agent_actions,
-                                                                                                                    last_agent_rewards.unsqueeze(dim=1))
+                                                                                                                    last_agent_rewards.unsqueeze(dim=1),
+                                                                                                                    next_agent_contact.transpose(0,1),
+                                                                                                                    next_agent_message_in.squeeze(dim=0))
                             
                         else:
                             action, log_prob, _, value, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
@@ -208,7 +215,8 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                                                                                     next_agent_lstm_state,
                                                                                                                     next_agent_dones,
                                                                                                                     last_agent_actions,
-                                                                                                                    last_agent_rewards.unsqueeze(dim=1))
+                                                                                                                    last_agent_rewards.unsqueeze(dim=1),
+                                                                                                                    next_agent_contact.transpose(0,1))
                     
                     storage["agent_{0}".format(a)]["values"][rollout_step] = value.transpose(0, 1)
                     storage["agent_{0}".format(a)]["actions"][rollout_step] = action
@@ -226,13 +234,13 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     input_dict["actions"] = actions.cpu()
                     input_dict["messages"] = messages.cpu()
 
-                    next_obs, next_messages_in, rewards, dones, infos = env.step(input_dict)
+                    next_obs, next_messages_in, rewards, dones, next_contact, infos = env.step(input_dict)
                 
                 else:
                     actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
                                     for a in range(config["env_config"]["num_agents"])], dim=1)
     
-                    next_obs, rewards, dones, infos = env.step(actions.cpu())
+                    next_obs, rewards, dones, next_contact, infos = env.step(actions.cpu())
 
                 
                 #Handle the dones and convert the bools to binary tensors
@@ -260,20 +268,22 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     if dones["__all__"][e]:
                         for a in range(config["env_config"]["num_agents"]):
                             if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
-                                reset_obs, reset_messages, _ = env.reset(e)
+                                reset_obs, reset_messages, reset_contact, _ = env.reset(e)
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                                 next_messages_in["agent_{0}".format(a)][0][e] = reset_messages["agent_{0}".format(a)].to(device)
+                                next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
                             else:
-                                reset_obs, _ = env.reset(e)
+                                reset_obs, reset_contact, _ = env.reset(e)
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
+                                next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
 
                 
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
                     if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
-                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_messages_in), block=True)
+                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_messages_in), block=True)
                     else:
-                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success), block=True)
+                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact), block=True)
                     done[pid] = 1
                     rollout_step = 0
                     #Last lstm state is the initial lstm state for the next rollout
@@ -370,9 +380,9 @@ if __name__ == "__main__":
             start = time.time()
 
             if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
-                storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success = build_storage_from_batch(batch, config)
+                storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
             else:
-                storage, next_obs, next_dones, success_rate, goal_line, goal_line_success = build_storage_from_batch(batch, config)
+                storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
       
             #Compute the advantages for each policy
             for a in range(config["env_config"]["num_agents"]):
@@ -380,7 +390,9 @@ if __name__ == "__main__":
                                                                         storage["agent_{0}".format(a)],
                                                                         next_obs["agent_{0}".format(a)],
                                                                         next_dones["agent_{0}".format(a)],
-                                                                        next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] == "MultiAgentLandmarksComm" else None,)
+                                                                        next_contact["agent_{0}".format(a)],
+                                                                        next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] == "MultiAgentLandmarksComm" else None,
+                                                                        )
                 
                 storage["agent_{0}".format(a)]["advantages"] = advantages
                 storage["agent_{0}".format(a)]["returns"] = returns
