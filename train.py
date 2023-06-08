@@ -267,7 +267,6 @@ if __name__ == "__main__":
 
         
         #Update the policy parameters
-        start
         for a in range(config["env_config"]["num_agents"]):
             policy_dict["agent_{0}".format(a)].train(storage["agent_{0}".format(a)])
         print(time.time() - start, "Time for updating policy")
