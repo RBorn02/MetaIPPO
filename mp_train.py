@@ -297,6 +297,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     print("Worker {0} finished collecting data".format(pid))
                     end = time.time()
                     print("Time to collect data: {0}".format(end - start))
+                    start = time.time()
                 else:
                     rollout_step += 1
                     continue
