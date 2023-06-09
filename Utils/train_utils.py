@@ -13,6 +13,7 @@ def build_storage(config, env):
     device = config["device"]
     num_layers = config["model_config"]["lstm_layers"]
     hidden_size = config["model_config"]["lstm_hidden_size"]
+    message_length = config["env_config"]["message_length"]
 
     storage = {}
     for a in range(config["env_config"]["num_agents"]):
@@ -27,10 +28,12 @@ def build_storage(config, env):
                                         ),
                     "rewards":torch.zeros((num_steps, num_envs)).to(device),
                     "last_rewards":torch.zeros((num_steps, num_envs)).to(device),
-                    "actions":torch.zeros((num_steps, num_envs) + env.action_space.shape).to(device),
-                    "last_actions":torch.zeros((num_steps, num_envs) + env.action_space.shape).to(device),
+                    "actions":torch.zeros((num_steps, num_envs) + env.action_space_shape).to(device),
+                    "message_in":torch.zeros((num_steps, num_envs, message_length)).to(device),
+                    "last_actions":torch.zeros((num_steps, num_envs) + env.action_space_shape).to(device),
                     "values":torch.zeros((num_steps, num_envs)).to(device),
                     "logprobs":torch.zeros((num_steps, num_envs)).to(device),
+                    "contact":torch.zeros((num_steps, num_envs)).to(device),
                     }
               
     return storage
@@ -68,9 +71,11 @@ def build_storage_from_batch(batch, config):
     storage_out = {}
     next_obs = {}
     next_dones = {}
+    next_messages = {}
     success_rate = {}
     achieved_goal = {}
     achieved_goal_success = {}
+    next_contact = {}
     for a in range(config["env_config"]["num_agents"]):
         agent = "agent_{0}".format(a)
         storage_out[agent] = {}
@@ -84,16 +89,25 @@ def build_storage_from_batch(batch, config):
         storage_out[agent]["last_rewards"] = torch.cat([batch[i][0][agent]["last_rewards"] for i in range(len(batch))], dim=1)
         storage_out[agent]["actions"] = torch.cat([batch[i][0][agent]["actions"] for i in range(len(batch))], dim=1)
         storage_out[agent]["last_actions"] = torch.cat([batch[i][0][agent]["last_actions"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["message_in"] = torch.cat([batch[i][0][agent]["message_in"] for i in range(len(batch))], dim=1)
         storage_out[agent]["values"] = torch.cat([batch[i][0][agent]["values"] for i in range(len(batch))], dim=1)
         storage_out[agent]["logprobs"] = torch.cat([batch[i][0][agent]["logprobs"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["contact"] = torch.cat([batch[i][0][agent]["contact"] for i in range(len(batch))], dim=1)
 
         next_obs[agent] = torch.cat([batch[i][1][agent] for i in range(len(batch))], dim=1)
         next_dones[agent] = torch.cat([batch[i][2][agent] for i in range(len(batch))], dim=1)
         success_rate[agent] = sum([batch[i][3][agent] for i in range(len(batch))])
         achieved_goal[agent] = torch.sum(torch.cat([batch[i][4][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
+        next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
     
-    return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success
+        if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+            next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
+    
+    if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
+    else:
+        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
         
     
 
@@ -134,6 +148,8 @@ def build_config(args):
         config["env_config"]["seed"] = args.seed
         config["env_config"]["single_goal"] = args.single_goal
         config["env_config"]["single_reward"] = args.single_reward
+        config["env_config"]["vocab_size"] = args.vocab_size
+        config["env_config"]["message_length"] = args.message_length
         
         config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
@@ -157,6 +173,7 @@ def build_config(args):
         config["device"] = args.device
         config["num_workers"] = args.num_workers
         config["record_video_every"] = args.record_video_every
+        config["debug"] = args.debug
 
         config["model_config"] = {}
         config["model_config"]["lstm_layers"] = args.lstm_layers
@@ -166,6 +183,8 @@ def build_config(args):
         config["model_config"]["channel_2"] = args.channel_2
         config["model_config"]["channel_3"] = args.channel_3
         config["model_config"]["use_last_action_reward"] = args.use_last_action_reward
+        config["model_config"]["contact"] = args.contact
+        config["model_config"]["one_hot_message"] = args.one_hot_message
 
     return config
 
@@ -241,10 +260,14 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
     num_steps = config["env_config"]["timelimit"] * episodes
     frames = []
     infos = []
-    next_obs, _ = env.reset(0)
+
+    if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+        next_obs, next_messages_in, next_contact, _ = env.reset(0)
+    else:
+        next_obs, next_contact, _ = env.reset(0)
 
     next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])) for a in range(config["env_config"]["num_agents"])}
-    past_actions = torch.zeros((num_steps, config["env_config"]["num_agents"]) + env.action_space.shape)
+    past_actions = torch.zeros((num_steps, config["env_config"]["num_agents"]) + env.action_space_shape)
     past_rewards = torch.zeros((num_steps, config["env_config"]["num_agents"]))
     next_lstm_state = (torch.zeros(config["model_config"]["lstm_layers"], config["env_config"]["num_agents"], config["model_config"]["lstm_hidden_size"]),
                             torch.zeros(config["model_config"]["lstm_layers"], config["env_config"]["num_agents"], config["model_config"]["lstm_hidden_size"]))
@@ -254,22 +277,42 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
         #Convert the frame to uint8 and handle the normalization
         frames.append(frame.astype(np.uint8))
 
-        actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space.shape)
+        actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space_shape)
         with torch.no_grad():
             for a in range(config["env_config"]["num_agents"]):
-                actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
-                    next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
-                    (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
-                    next_dones["agent_{0}".format(a)].unsqueeze(dim=0),
-                    past_actions[s, a].unsqueeze(dim=0),
-                    past_rewards[s, a].unsqueeze(dim=0).reshape(-1, 1),
-                    )
+                if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                    actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
+                        next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
+                        (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
+                        next_dones["agent_{0}".format(a)].unsqueeze(dim=0),
+                        next_messages_in["agent_{0}".format(a)].reshape((1,) + env.message_shape),
+                        past_actions[s, a].unsqueeze(dim=0),
+                        past_rewards[s, a].unsqueeze(dim=0).reshape(-1, 1),
+                        next_contact["agent_{0}".format(a)],
+                        )
+                else:
+                    actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
+                        next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
+                        (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
+                        next_dones["agent_{0}".format(a)].unsqueeze(dim=0),
+                        past_actions[s, a].unsqueeze(dim=0),
+                        past_rewards[s, a].unsqueeze(dim=0).reshape(-1, 1),
+                        next_contact["agent_{0}".format(a)],
+                        )
                 if s < num_steps - 1:
                     past_actions[s + 1, a] = actions[:,a].squeeze(dim=0)
                 next_lstm_state[0][:,a] = next_agent_lstm_state[0]
                 next_lstm_state[1][:,a] = next_agent_lstm_state[1]
-   
-        next_obs, rewards, dones, info = env.step(actions)
+
+        if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+            input_dict = {}
+            movement_actions = actions[:,:, :env.movement_shape[0]]
+            message_actions = actions[:,:, env.movement_shape[0]:]
+            input_dict["actions"] = movement_actions
+            input_dict["messages"] = message_actions
+            next_obs, next_messages_in, rewards ,dones, next_contact, info = env.step(input_dict)
+        else:
+            next_obs, rewards, dones, next_contact, info = env.step(actions)
         next_dones = handle_dones(dones)
         for a in range(config["env_config"]["num_agents"]):
             if s < num_steps - 1:
@@ -277,7 +320,10 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
             
         infos.append(info)
         if dones["__all__"]:
-            next_obs, _ = env.reset(0)
+            if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                next_obs, next_messages_in, next_contact, _ = env.reset(0)
+            else:
+                next_obs, next_contact, _ = env.reset(0)
     
     #Create video from frames using different library than opencv
     writer = imageio.get_writer(video_path + "video_epoch_{0}.mp4".format(update), fps=30, codec="libx264")
