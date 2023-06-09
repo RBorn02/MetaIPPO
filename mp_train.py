@@ -312,173 +312,173 @@ def rollout(pid, policy_dict, train_queue, done, config):
 if __name__ == "__main__":
     #Multi Processing
     os.environ['OMP_NUM_THREADS'] = '1'
-    manager = mp.Manager()
-    train_queue = manager.Queue(config["num_workers"])
-    done = manager.Array('i', [0 for i in range(config["num_workers"])])
+    with mp.Manager() as manager:
+        train_queue = manager.Queue(config["num_workers"])
+        done = manager.Array('i', [0 for i in range(config["num_workers"])])
 
 
-    #Random seeding
-    random.seed(config["seed"])
-    np.random.seed(config["seed"])
-    torch.manual_seed(config["seed"])
-    torch.backends.cudnn.deterministic = True
+        #Random seeding
+        random.seed(config["seed"])
+        np.random.seed(config["seed"])
+        torch.manual_seed(config["seed"])
+        torch.backends.cudnn.deterministic = True
 
 
-    #Tracking
-    run_name = "PPO_{0}_{1}_{2}_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
-                                            config["env_config"]["coop_chance"], time.time())
-    if not config["debug"]:
-        wandb.init(
-            project="MetaIPPO",
-            sync_tensorboard=True,
-            config=config,
-            name=run_name,
-            monitor_gym=True,
-            save_code=True,
-        )
-    
-        writer = SummaryWriter(f"runs/{run_name}")
-        writer.add_text(
-        "hyperparameters",
-        "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in config.items()])),
-        )
+        #Tracking
+        run_name = "PPO_{0}_{1}_{2}_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
+                                                config["env_config"]["coop_chance"], time.time())
+        if not config["debug"]:
+            wandb.init(
+                project="MetaIPPO",
+                sync_tensorboard=True,
+                config=config,
+                name=run_name,
+                monitor_gym=True,
+                save_code=True,
+            )
+        
+            writer = SummaryWriter(f"runs/{run_name}")
+            writer.add_text(
+            "hyperparameters",
+            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in config.items()])),
+            )
 
-        current_path = os.path.dirname(os.path.abspath(__file__))
-        runs_path = os.path.join(current_path, "PPO_Runs")
-        if not os.path.exists(runs_path):
-            os.mkdir(runs_path)
-        run_path = os.path.join(runs_path, run_name)
+            current_path = os.path.dirname(os.path.abspath(__file__))
+            runs_path = os.path.join(current_path, "PPO_Runs")
+            if not os.path.exists(runs_path):
+                os.mkdir(runs_path)
+            run_path = os.path.join(runs_path, run_name)
 
-    #Build storage
-    training_info = {}
-    average_reward = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
-    best_average_reward = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
-    average_success_rate = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
-    best_average_success_rate = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
-    prev_best = 0.0
+        #Build storage
+        training_info = {}
+        average_reward = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
+        best_average_reward = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
+        average_success_rate = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
+        best_average_success_rate = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
+        prev_best = 0.0
 
 
-    #Start the game
-    global_step = 0
-    
-    num_updates = config["total_steps"] // config["batch_size"]
-    update = 0
+        #Start the game
+        global_step = 0
+        
+        num_updates = config["total_steps"] // config["batch_size"]
+        update = 0
 
-    #Start the workers
-    ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
+        #Start the workers
+        ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
 
-    print("Initializing workers...")
-    time.sleep(10)
-    
+        print("Initializing workers...")
+        time.sleep(10)
+        
 
-    while True:
-        if all(np.array(done, dtype=bool)):
-            # Get the data from the workers
-            batch = []
-            for i in range(config["num_workers"]):
-                batch.append(train_queue.get())
-            start = time.time()
+        while True:
+            if all(np.array(done, dtype=bool)):
+                # Get the data from the workers
+                batch = []
+                for i in range(config["num_workers"]):
+                    batch.append(train_queue.get())
+                start = time.time()
 
-            if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
-                storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
-            else:
-                storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
-      
-            #Compute the advantages for each policy
-            for a in range(config["env_config"]["num_agents"]):
-                advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
-                                                                        storage["agent_{0}".format(a)],
-                                                                        next_obs["agent_{0}".format(a)],
-                                                                        next_dones["agent_{0}".format(a)],
-                                                                        next_contact["agent_{0}".format(a)],
-                                                                        next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] == "MultiAgentLandmarksComm" else None,
-                                                                        )
-                
-                storage["agent_{0}".format(a)]["advantages"] = advantages
-                storage["agent_{0}".format(a)]["returns"] = returns
-
-            if args.anneal_lr:
-                frac = 1.0 - (update - 1.0) / num_updates
-                lrnow = frac * config["lr"]
+                if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                    storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
+                else:
+                    storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
+        
+                #Compute the advantages for each policy
                 for a in range(config["env_config"]["num_agents"]):
-                    policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
-      
-            #Update the policy parameters
-            for a in range(config["env_config"]["num_agents"]):
-                loss, pg_loss, value_loss, entropy_loss, explained_variance, clip_fracs =  policy_dict["agent_{0}".format(a)].train(storage["agent_{0}".format(a)])
-                print("Agent_{0} loss total: {1}; pg loss: {2}; value loss: {3}; entropy loss: {4}; explained variance: {5}; clip fracs: {6}".format(a, loss, pg_loss, 
-                                                                                                                      value_loss, entropy_loss, explained_variance, clip_fracs))
-                if not config["debug"]:
-                    wandb.log({"agent_{0}_loss".format(a): loss,
-                           "agent_{0}_pg_loss".format(a): pg_loss,
-                           "agent_{0}_value_loss".format(a): value_loss,
-                           "agent_{0}_entropy_loss".format(a): entropy_loss,
-                           "agent_{0}_explained_variance".format(a): explained_variance,
-                           "agent_{0}_clip_fracs".format(a): clip_fracs})
-                
-            print("Time to update policy: {0}".format(time.time() - start))
-
-            #TODO: Add all the tracking and printing
-            training_info[update] = print_info(storage, next_dones, update, average_reward, best_average_reward,
-                                                average_success_rate, best_average_success_rate, success_rate,
-                                                goal_line, goal_line_success)
-            
-            for a in range(config["env_config"]["num_agents"]):
-                agent_info = training_info[update]["agent_{0}".format(a)]
-                if not config["debug"]:
-                    wandb.log({"agent_{0}_average_reward".format(a): agent_info["average_reward"],
-                           "agent_{0}_average_success_rate".format(a): agent_info["average_success_rate"],
-                            "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
-                            "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
-                            "agent_{0}_completed".format(a): agent_info["completed"],
-                            "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
-                            "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
-                            "agent_{0}_successes".format(a): agent_info["successes"],
-                            "agent_{0}_rewards".format(a): agent_info["reward"]})
-
-            #Save the models for the agents if the sum of the average rewards is greater than the best average reward
-            if not config["debug"]:
-                if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
-                    prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
-                    for a in range(config["env_config"]["num_agents"]):
-                        save_path = os.path.join(run_path, "models".format(prev_best, update, a))
-                        if not os.path.exists(save_path):
-                            os.makedirs(save_path)
-                        if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
-                            os.remove(save_path + "/agent_{0}_model.pt".format(a))
-                        torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
-                                    "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
-                                    save_path + "/agent_{0}_model.pt".format(a))
-                    print("Saved models for agents with average reward {0}".format(prev_best)) 
-                                                                                                       
-
-            #Record a video every n updates
-            if not config["debug"]:
-                if update % config["record_video_every"] == 0:
-                    video_path = os.path.join(run_path, "Videos/")
+                    advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
+                                                                            storage["agent_{0}".format(a)],
+                                                                            next_obs["agent_{0}".format(a)],
+                                                                            next_dones["agent_{0}".format(a)],
+                                                                            next_contact["agent_{0}".format(a)],
+                                                                            next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] == "MultiAgentLandmarksComm" else None,
+                                                                            )
                     
-                    video_config = {}
-                    video_config["env_config"] = config["env_config"].copy()
-                    video_config["env_config"]["num_envs"] = 1
-                    video_config["model_config"] = config["model_config"].copy()
-                    video_env = EnvironmentHandler(video_config)
+                    storage["agent_{0}".format(a)]["advantages"] = advantages
+                    storage["agent_{0}".format(a)]["returns"] = returns
 
-                    if not os.path.exists(video_path):
-                        os.makedirs(video_path)
-                    record_video(video_config, video_env, policy_dict, 4, video_path, update)
-                    print("Recorded video for update {0}".format(update))                                                                 
-            
+                if args.anneal_lr:
+                    frac = 1.0 - (update - 1.0) / num_updates
+                    lrnow = frac * config["lr"]
+                    for a in range(config["env_config"]["num_agents"]):
+                        policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
+        
+                #Update the policy parameters
+                for a in range(config["env_config"]["num_agents"]):
+                    loss, pg_loss, value_loss, entropy_loss, explained_variance, clip_fracs =  policy_dict["agent_{0}".format(a)].train(storage["agent_{0}".format(a)])
+                    print("Agent_{0} loss total: {1}; pg loss: {2}; value loss: {3}; entropy loss: {4}; explained variance: {5}; clip fracs: {6}".format(a, loss, pg_loss, 
+                                                                                                                        value_loss, entropy_loss, explained_variance, clip_fracs))
+                    if not config["debug"]:
+                        wandb.log({"agent_{0}_loss".format(a): loss,
+                            "agent_{0}_pg_loss".format(a): pg_loss,
+                            "agent_{0}_value_loss".format(a): value_loss,
+                            "agent_{0}_entropy_loss".format(a): entropy_loss,
+                            "agent_{0}_explained_variance".format(a): explained_variance,
+                            "agent_{0}_clip_fracs".format(a): clip_fracs})
+                    
+                print("Time to update policy: {0}".format(time.time() - start))
 
-            #Restart the workers
-            for e in range(config["num_workers"]):
-                done[e] = 0
-            
-            
-            update += 1
-            if update >= num_updates:
-                print("Training finished")
-                ctx.join()
-                break
-        else:
-            continue
+                #TODO: Add all the tracking and printing
+                training_info[update] = print_info(storage, next_dones, update, average_reward, best_average_reward,
+                                                    average_success_rate, best_average_success_rate, success_rate,
+                                                    goal_line, goal_line_success)
+                
+                for a in range(config["env_config"]["num_agents"]):
+                    agent_info = training_info[update]["agent_{0}".format(a)]
+                    if not config["debug"]:
+                        wandb.log({"agent_{0}_average_reward".format(a): agent_info["average_reward"],
+                            "agent_{0}_average_success_rate".format(a): agent_info["average_success_rate"],
+                                "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
+                                "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
+                                "agent_{0}_completed".format(a): agent_info["completed"],
+                                "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
+                                "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
+                                "agent_{0}_successes".format(a): agent_info["successes"],
+                                "agent_{0}_rewards".format(a): agent_info["reward"]})
+
+                #Save the models for the agents if the sum of the average rewards is greater than the best average reward
+                if not config["debug"]:
+                    if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
+                        prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
+                        for a in range(config["env_config"]["num_agents"]):
+                            save_path = os.path.join(run_path, "models".format(prev_best, update, a))
+                            if not os.path.exists(save_path):
+                                os.makedirs(save_path)
+                            if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
+                                os.remove(save_path + "/agent_{0}_model.pt".format(a))
+                            torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
+                                        "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
+                                        save_path + "/agent_{0}_model.pt".format(a))
+                        print("Saved models for agents with average reward {0}".format(prev_best)) 
+                                                                                                        
+
+                #Record a video every n updates
+                if not config["debug"]:
+                    if update % config["record_video_every"] == 0:
+                        video_path = os.path.join(run_path, "Videos/")
+                        
+                        video_config = {}
+                        video_config["env_config"] = config["env_config"].copy()
+                        video_config["env_config"]["num_envs"] = 1
+                        video_config["model_config"] = config["model_config"].copy()
+                        video_env = EnvironmentHandler(video_config)
+
+                        if not os.path.exists(video_path):
+                            os.makedirs(video_path)
+                        record_video(video_config, video_env, policy_dict, 4, video_path, update)
+                        print("Recorded video for update {0}".format(update))                                                                 
+                
+
+                #Restart the workers
+                for e in range(config["num_workers"]):
+                    done[e] = 0
+                
+                
+                update += 1
+                if update >= num_updates:
+                    print("Training finished")
+                    ctx.join()
+                    break
+            else:
+                continue
         
