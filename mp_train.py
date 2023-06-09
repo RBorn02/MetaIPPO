@@ -1,7 +1,7 @@
 import os
 import random
 import torch
-import torch.multiprocessing as mp
+import multiprocessing as mp
 import numpy as np
 from distutils.util import strtobool
 import time
@@ -277,7 +277,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                                 next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
 
-                
+                print(rollout_step)
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
                     if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
@@ -312,6 +312,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
 if __name__ == "__main__":
     #Multi Processing
     os.environ['OMP_NUM_THREADS'] = '1'
+    mp.set_start_method('spawn')
     with mp.Manager() as manager:
         train_queue = manager.Queue(config["num_workers"])
         done = manager.Array('i', [0 for i in range(config["num_workers"])])
@@ -365,7 +366,11 @@ if __name__ == "__main__":
         update = 0
 
         #Start the workers
-        ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
+        #ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
+        for e in range(config["num_workers"]):
+            p = mp.Process(target=rollout, args=([e, policy_dict, train_queue, done, config]))
+            p.start()
+            print("Started worker {0}".format(e))
 
         print("Initializing workers...")
         time.sleep(10)
