@@ -1,6 +1,7 @@
 import numpy as np
 import gymnasium as gym
 from Envs.simple_landmarks import MultiAgentLandmarks, MultiGoalEnv, MultiAgentLandmarksComm
+from Envs.linear_rooms import LinRoomEnv
 from typing import Callable, Dict, List, Tuple, Optional, Union, Set, Type
 import torch
 from Utils.train_utils import get_init_tensors
@@ -39,6 +40,7 @@ class EnvironmentHandler():
             actions = {e: {"agent_{0}".format(a): actions[e][a] for a in range(self.env_config["num_agents"])} for e in range(self.env_config["num_envs"])}
             self.vector_env.send_actions(actions)
         obs_in, rewards_in, dones_in, truncateds, info = self.vector_env.poll()[:-1]
+        #print(obs_in)
         obs_dict = {}
         rewards_dict = {}
         dones_dict = {}
@@ -55,12 +57,13 @@ class EnvironmentHandler():
             message = torch.zeros((1, self.env_config["num_envs"], self.env_config["message_length"]))
             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
             for env in obs_in.keys():
+                #print(env)
                 if "agent_{0}".format(a) in obs_in[env].keys():
                     if self.env_config["env_name"] == "MultiAgentLandmarksComm":
                         message[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["message_observation_space"])
-                        obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["visual_observation_space"])
+                        obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["visual_observation_space"].copy())
                     else:
-                        obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)])
+                        obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)].copy())
                     rewards[0][env] = rewards_in[env]["agent_{0}".format(a)]
                     dones[0][env] = 1.0 if dones_in[env]["agent_{0}".format(a)] else 0.0 #Return 1.0 for all steps that agent is done, not only one time
                     successes[0][env] = info[env]["agent_{0}".format(a)]["success"]
@@ -94,7 +97,7 @@ class EnvironmentHandler():
 
         if self.env_config["env_name"] == "MultiAgentLandmarksComm":
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
-                np.array([reset_obs[i]["agent_{0}".format(a)]["visual_observation_space"] for i in range(self.env_config["num_envs"])])) 
+                np.array([reset_obs[i]["agent_{0}".format(a)]["visual_observation_space"].copy() for i in range(self.env_config["num_envs"])])) 
                 for a in range(self.env_config["num_agents"])}
             message_dict = {"agent_{0}".format(a): torch.FloatTensor(
                 np.array([reset_obs[i]["agent_{0}".format(a)]["message_observation_space"] for i in range(self.env_config["num_envs"])]))
@@ -103,7 +106,7 @@ class EnvironmentHandler():
         
         else:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
-                np.array([reset_obs[i]["agent_{0}".format(a)] for i in range(self.env_config["num_envs"])])).unsqueeze(dim=0) 
+                np.array([reset_obs[i]["agent_{0}".format(a)].copy() for i in range(self.env_config["num_envs"])])).unsqueeze(dim=0) 
                                             for a in range(self.env_config["num_agents"])}
             return obs_dict, contact, infos_dict
     
@@ -114,14 +117,14 @@ class EnvironmentHandler():
         contact = {"agent_{0}".format(a): torch.zeros((1, 1)) for a in range(self.env_config["num_agents"])}
 
         if self.env_config["env_name"] == "MultiAgentLandmarksComm":
-            obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]["visual_observation_space"]).unsqueeze(dim=0)
+            obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]["visual_observation_space"].copy()).unsqueeze(dim=0)
                                             for a in range(self.env_config["num_agents"])}
             message_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]["message_observation_space"]).unsqueeze(dim=0)
                                             for a in range(self.env_config["num_agents"])}
             return obs_dict, message_dict, contact, infos_dict
         
         else:
-            obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]).unsqueeze(dim=0)
+            obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)].copy()).unsqueeze(dim=0)
                                             for a in range(self.env_config["num_agents"])}
             return obs_dict, contact, infos_dict
 
@@ -133,6 +136,8 @@ class EnvironmentHandler():
             return MultiAgentLandmarks(config)
         elif config["env_name"] == "MultiGoalEnv":
             return MultiGoalEnv(config)
+        elif config["env_name"] == "LinRoomEnv":
+            return LinRoomEnv(config)
         else:
             return MultiAgentLandmarksComm(config)
         

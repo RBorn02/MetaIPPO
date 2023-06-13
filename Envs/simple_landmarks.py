@@ -289,7 +289,6 @@ class MultiAgentLandmarks(MultiAgentEnv):
         rewards, dones, truncated, info = self.compute_reward()
         return observations, rewards, dones, truncated, info
 
-    
     def reset(self, seed=None, options=None):
         self.engine.reset()
         info = {}
@@ -783,8 +782,8 @@ class MultiAgentLandmarksComm(MultiAgentEnv):
                         self.agent_goal_dict[agent] = np.array(goal, dtype=int)
                         #possible_single_goals.remove(goal)
     
-    def render(self):
-         image = self.engine.generate_agent_image(self.playground.agents[0])
+    def render(self, pg_size=200):
+         image = self.engine.generate_agent_image(self.playground.agents[0], pg_size)
          return image
     
     def clip_actions(self, actions, act_idx):
