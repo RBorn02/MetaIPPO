@@ -100,7 +100,7 @@ class LinRoomEnv(MultiAgentEnv):
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
-        self.playground = SingleRoom(size=(400, 150), wall_depth=10)
+        self.playground = SingleRoom(size=(400, 200), wall_depth=10)
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
@@ -110,10 +110,10 @@ class LinRoomEnv(MultiAgentEnv):
         )
 
         agent_sampler_chest = CoordinateSampler(
-            (360, 75), area_shape="rectangle", size=(80, 130)
+            (360, 100), area_shape="rectangle", size=(80, 180)
         )
         agent_sampler_diamond = CoordinateSampler(
-            (60, 75), area_shape="rectangle", size=(80, 130)
+            (60, 100), area_shape="rectangle", size=(80, 180)
         )
 
         
@@ -144,7 +144,7 @@ class LinRoomEnv(MultiAgentEnv):
         for agent, idx in zip(agent_ls, range(config["num_agents"])):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
-            agent.add_sensor(TopdownSensor(agent.base_platform, resolution=64, normalize=True))
+            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
             self.playground.add_agent(agent, possible_agent_samplers[idx])
 
         self.spawn_objects()
@@ -211,8 +211,8 @@ class LinRoomEnv(MultiAgentEnv):
         return observations, info
 
     def spawn_objects(self):
-        chest_coordinates = CoordinateSampler((360, 75), area_shape="rectangle", size=(80, 130))
-        diamond_coordinates = CoordinateSampler((40, 75), area_shape="rectangle", size=(80, 130))
+        chest_coordinates = CoordinateSampler((360, 100), area_shape="rectangle", size=(80, 180))
+        diamond_coordinates = CoordinateSampler((40, 100), area_shape="rectangle", size=(80, 180))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         self.possible_goals = []
@@ -305,7 +305,7 @@ class LinRoomEnvComm(MultiAgentEnv):
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
-        self.playground = SingleRoom(size=(400, 150), wall_depth=10)
+        self.playground = SingleRoom(size=(400, 200), wall_depth=10)
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
@@ -315,10 +315,10 @@ class LinRoomEnvComm(MultiAgentEnv):
         )
 
         agent_sampler_chest = CoordinateSampler(
-            (360, 75), area_shape="rectangle", size=(80, 130)
+            (360, 100), area_shape="rectangle", size=(80, 180)
         )
         agent_sampler_diamond = CoordinateSampler(
-            (60, 75), area_shape="rectangle", size=(80, 130)
+            (60, 100), area_shape="rectangle", size=(80, 180)
         )
 
         
@@ -349,7 +349,7 @@ class LinRoomEnvComm(MultiAgentEnv):
         for agent, idx in zip(agent_ls, range(config["num_agents"])):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
-            agent.add_sensor(TopdownSensor(agent.base_platform, resolution=64, normalize=True))
+            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
             self.playground.add_agent(agent, possible_agent_samplers[idx])
 
         self.spawn_objects()
@@ -445,8 +445,8 @@ class LinRoomEnvComm(MultiAgentEnv):
         return observations, info
 
     def spawn_objects(self):
-        chest_coordinates = CoordinateSampler((360, 75), area_shape="rectangle", size=(80, 130))
-        diamond_coordinates = CoordinateSampler((40, 75), area_shape="rectangle", size=(80, 130))
+        chest_coordinates = CoordinateSampler((360, 100), area_shape="rectangle", size=(80, 180))
+        diamond_coordinates = CoordinateSampler((40, 100), area_shape="rectangle", size=(80, 180))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         self.possible_goals = []
@@ -517,7 +517,7 @@ class LinRoomEnvComm(MultiAgentEnv):
                        self.action_space["actuators_action_space"].high[act_idx])
     
     def render(self):
-         image = self.engine.generate_agent_image(self.playground.agents[1], max_size_pg=400)
+         image = self.engine.generate_agent_image(self.playground.agents[1], max_size_pg=400, height_sensor=200, width_sensors=400)
          return image
        
     def close(self):
@@ -526,6 +526,7 @@ class LinRoomEnvComm(MultiAgentEnv):
 
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
+    import cv2
     config = {"num_landmarks": 4,
               "num_agents": 2,
               "timelimit": 1000,
@@ -542,12 +543,15 @@ if __name__ == "__main__":
     obs_sampled = env.observation_space.sample()
     for i in range(1000):
         print(i)
-        actions = {"agent_0": env.action_space.sample(),
-                   "agent_1": env.action_space.sample(),}
+        actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+                   "agent_1": torch.Tensor(env.action_space.sample()),}
         print(actions)
         obs, rewards, dones, _, info = env.step(actions)
         print(rewards)
         img = env.render()
-        plt.imshow(img)
-        plt.show()
+        cv2.imshow('agent', img)
+        cv2.waitKey(20)
+
+        #plt.imshow(img)
+        #plt.show()
 
