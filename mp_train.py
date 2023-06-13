@@ -277,7 +277,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                                 next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
 
-                print(rollout_step)
+                
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
                     if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
@@ -314,7 +314,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
 #Train the agents
 if __name__ == "__main__":
     #Multi Processing
-    #os.environ['OMP_NUM_THREADS'] = '1'
+    os.environ['OMP_NUM_THREADS'] = '1'
     mp.set_start_method('spawn')
     with mp.Manager() as manager:
         train_queue = manager.Queue(config["num_workers"])
