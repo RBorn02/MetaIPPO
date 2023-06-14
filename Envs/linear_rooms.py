@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from ray.rllib.env import MultiAgentEnv
 from gymnasium import spaces
 
-from simple_playgrounds.playgrounds.layouts import SingleRoom, LineRooms
+from simple_playgrounds.playgrounds.layouts import SingleRoom, LineRooms, GridRooms
 from simple_playgrounds.engine import Engine
 from simple_playgrounds.agents.agents import BaseAgent
 from simple_playgrounds.elements.collection.activable import ActivableByGem
@@ -100,7 +100,8 @@ class LinRoomEnv(MultiAgentEnv):
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
-        self.playground = SingleRoom(size=(400, 200), wall_depth=10)
+        #self.playground = SingleRoom(size=(300, 200), wall_depth=10)
+        self.playground = GridRooms(size=(300, 200), room_layout=(2, 2), random_doorstep_position=False, doorstep_size=80)
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
@@ -110,10 +111,10 @@ class LinRoomEnv(MultiAgentEnv):
         )
 
         agent_sampler_chest = CoordinateSampler(
-            (360, 100), area_shape="rectangle", size=(80, 180)
+            (150, 100), area_shape="rectangle", size=(260, 180)
         )
         agent_sampler_diamond = CoordinateSampler(
-            (60, 100), area_shape="rectangle", size=(80, 180)
+            (150, 100), area_shape="rectangle", size=(260, 180)
         )
 
         
@@ -211,8 +212,8 @@ class LinRoomEnv(MultiAgentEnv):
         return observations, info
 
     def spawn_objects(self):
-        chest_coordinates = CoordinateSampler((360, 100), area_shape="rectangle", size=(80, 180))
-        diamond_coordinates = CoordinateSampler((40, 100), area_shape="rectangle", size=(80, 180))
+        chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(130, 180))
+        diamond_coordinates = CoordinateSampler((75, 100), area_shape="rectangle", size=(130, 180))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         self.possible_goals = []
@@ -283,7 +284,7 @@ class LinRoomEnv(MultiAgentEnv):
         return np.clip(actions, self.action_space.low[act_idx], self.action_space.high[act_idx])
     
     def render(self):
-         image = self.engine.generate_agent_image(self.playground.agents[1], max_size_pg=400)
+         image = self.engine.generate_agent_image(self.playground.agents[0], max_size_pg=300)
          return image
        
     def close(self):
@@ -305,7 +306,7 @@ class LinRoomEnvComm(MultiAgentEnv):
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
-        self.playground = SingleRoom(size=(400, 200), wall_depth=10)
+        self.playground = SingleRoom(size=(300, 200), wall_depth=10)
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
@@ -315,10 +316,10 @@ class LinRoomEnvComm(MultiAgentEnv):
         )
 
         agent_sampler_chest = CoordinateSampler(
-            (360, 100), area_shape="rectangle", size=(80, 180)
+            (150, 100), area_shape="rectangle", size=(260, 180)
         )
         agent_sampler_diamond = CoordinateSampler(
-            (60, 100), area_shape="rectangle", size=(80, 180)
+            (150, 100), area_shape="rectangle", size=(260, 180)
         )
 
         
@@ -445,8 +446,8 @@ class LinRoomEnvComm(MultiAgentEnv):
         return observations, info
 
     def spawn_objects(self):
-        chest_coordinates = CoordinateSampler((360, 100), area_shape="rectangle", size=(80, 180))
-        diamond_coordinates = CoordinateSampler((40, 100), area_shape="rectangle", size=(80, 180))
+        chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(130, 180))
+        diamond_coordinates = CoordinateSampler((175, 100), area_shape="rectangle", size=(130, 180))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         self.possible_goals = []
@@ -517,7 +518,7 @@ class LinRoomEnvComm(MultiAgentEnv):
                        self.action_space["actuators_action_space"].high[act_idx])
     
     def render(self):
-         image = self.engine.generate_agent_image(self.playground.agents[1], max_size_pg=400, height_sensor=200, width_sensors=400)
+         image = self.engine.generate_agent_image(self.playground.agents[0], max_size_pg=400, height_sensor=200, width_sensors=400)
          return image
        
     def close(self):
@@ -527,11 +528,11 @@ class LinRoomEnvComm(MultiAgentEnv):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import cv2
-    config = {"num_landmarks": 4,
-              "num_agents": 2,
+    config = {"num_landmarks": 1,
+              "num_agents": 1,
               "timelimit": 1000,
               "coop_chance":0.0,
-              "message_len": 3,
+              "message_length": 3,
               "vocab_size": 3,
               "message_penalty": 0.02,
               "seed": 42,
