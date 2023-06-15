@@ -12,10 +12,11 @@ from simple_playgrounds.playgrounds.layouts import SingleRoom, LineRooms, GridRo
 from simple_playgrounds.engine import Engine
 from simple_playgrounds.agents.agents import BaseAgent
 from simple_playgrounds.elements.collection.activable import ActivableByGem
+from simple_playgrounds.elements.collection.basic import Physical, Wall
 from simple_playgrounds.agents.parts.actuators import ContinuousActuator
 from simple_playgrounds.common.definitions import ElementTypes, CollisionTypes
 from simple_playgrounds.agents.parts.controllers import Keyboard, External
-from simple_playgrounds.common.texture import ColorTexture, UniqueCenteredStripeTexture
+from simple_playgrounds.common.texture import ColorTexture, UniqueCenteredStripeTexture, MultipleCenteredStripesTexture
 from simple_playgrounds.elements.element import GemElement
 from simple_playgrounds.common.position_utils import CoordinateSampler
 from simple_playgrounds.agents.sensors.topdown_sensors import TopdownSensor, FullPlaygroundSensor
@@ -59,6 +60,8 @@ class Chest(ActivableByGem):
         )
 
         self.graspable = True
+        self.reward = Physical(config_key="hexagon", radius=20, texture=MultipleCenteredStripesTexture(20, [255,0,0],[0,255,0], 8),
+                                name="reward", temporary=True)
 
     def _set_pm_collision_type(self):
         for pm_shape in self._pm_shapes:
@@ -70,10 +73,18 @@ class Chest(ActivableByGem):
         elem_add = None
 
         if activating.elem_activated is self:
+            print("here")
 
             list_remove = [activating, self]
 
+            if self.condition:
+                print("there")
+                elem_add = [(self.reward, self.coordinates)]
+
         return list_remove, elem_add
+    
+    def set_to_condition(self, condition):
+        self.condition = condition
 
 def plt_image(img):
     plt.axis('off')
@@ -110,49 +121,13 @@ class LinRoomEnv(MultiAgentEnv):
             playground=self.playground, time_limit=(self.timelimit + 1),  
         )
 
-        agent_sampler_chest = CoordinateSampler(
-            (150, 100), area_shape="rectangle", size=(260, 180)
-        )
-        agent_sampler_diamond = CoordinateSampler(
-            (150, 100), area_shape="rectangle", size=(260, 180)
-        )
-
-        
-        possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
-        possible_agent_samplers = [agent_sampler_chest, agent_sampler_diamond]
-        agent_dict = {}
-        
-        self.agent_goal_dict = {}
-        self.agent_first_reward_dict = {}
-        agent_ls = []
-        for i in range(self.num_agents):
-            agent = BaseAgent(
-            controller=External(),
+        dummy_agent = BaseAgent(controller=External(),
             radius=12,
-            interactive=True, 
-            name="agent_{0}".format(i),
-            texture=UniqueCenteredStripeTexture(size=10,
-                color=possible_agent_colors[i], color_stripe=(0,0,0), size_stripe=4))
-            #Makes agents traversable
-            categories = 2**3
-            for p in agent.parts:
-                p.pm_visible_shape.filter = pymunk.ShapeFilter(categories)
-            agent_dict["agent_{0}".format(i)] = agent
-            self.agent_goal_dict["agent_{0}".format(i)] = np.zeros(self.num_goals, dtype=int)
-            self.agent_ids.add("agent_{0}".format(i))
-            agent_ls.append(agent)
-      
-        for agent, idx in zip(agent_ls, range(config["num_agents"])):
-            ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
-            ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
-            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
-            self.playground.add_agent(agent, possible_agent_samplers[idx])
-
-        self.spawn_objects()
+            interactive=True,)
 
         lows = []
         highs = []
-        actuators = agent.controller.controlled_actuators
+        actuators = dummy_agent.controller.controlled_actuators
         for actuator in actuators:
             lows.append(actuator.min)
             highs.append(actuator.max)
@@ -162,8 +137,9 @@ class LinRoomEnv(MultiAgentEnv):
             dtype=np.float32)
         
         self.observation_space = spaces.Box(high=1, low=0, shape=(64, 64, 3), dtype=np.float32)
+
+        #self.playground.remove_agent(dummy_agent)
         
-        self._active_agents = self.playground.agents.copy()
 
     def process_obs(self):
         obs = {}
@@ -196,9 +172,17 @@ class LinRoomEnv(MultiAgentEnv):
         return observations, rewards, dones, truncated, info
 
     def reset(self, seed=None, options=None):
+        if self.episodes > 0:
+            for agent in self._active_agents:
+                self.playground.remove_agent(agent)
         self.engine.reset()
+        self.possible_sample_positions = [(30, 150), (70, 150), (110, 150), (150, 150), (190, 150), (230, 150), (270, 150),
+                                          (30, 50), (70, 50), (110, 50), (150, 50), (190, 50), (230, 50), (270, 50)]
+        self.spawn_agents()
+        self.spawn_objects()
         info = {}
         self._active_agents = self.playground.agents.copy()
+
         for agent in self._active_agents:
             self.agent_first_reward_dict[agent.name] = True
         
@@ -210,20 +194,70 @@ class LinRoomEnv(MultiAgentEnv):
         self.engine.update_observations()
         observations = self.process_obs()
         return observations, info
+    
+    def spawn_agents(self):
+        sample_pos_agents = random.sample(self.possible_sample_positions, self.num_agents)
+        self.possible_sample_positions.remove(sample_pos_agents[0])
+        self.possible_sample_positions.remove(sample_pos_agents[1])
+
+        agent_sampler_chest = CoordinateSampler(
+            sample_pos_agents[0], area_shape="rectangle", size=(20, 40)
+        )
+        agent_sampler_diamond = CoordinateSampler(
+            sample_pos_agents[1], area_shape="rectangle", size=(20, 40)
+        )
+
+        
+        possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
+        possible_agent_samplers = [agent_sampler_chest, agent_sampler_diamond]
+        agent_dict = {}
+        
+        self.agent_goal_dict = {}
+        self.agent_first_reward_dict = {}
+        agent_ls = []
+        for i in range(self.num_agents):
+            agent = BaseAgent(
+            controller=External(),
+            radius=12,
+            interactive=True, 
+            name="agent_{0}".format(i),
+            texture=UniqueCenteredStripeTexture(size=10,
+                color=possible_agent_colors[i], color_stripe=(0,0,0), size_stripe=4),
+            temporary=True)
+            #Makes agents traversable
+            categories = 2**3
+            for p in agent.parts:
+                p.pm_visible_shape.filter = pymunk.ShapeFilter(categories)
+            agent_dict["agent_{0}".format(i)] = agent
+            self.agent_goal_dict["agent_{0}".format(i)] = np.zeros(self.num_goals, dtype=int)
+            self.agent_ids.add("agent_{0}".format(i))
+            agent_ls.append(agent)
+      
+        for agent, idx in zip(agent_ls, range(config["num_agents"])):
+            ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
+            ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
+            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
+            self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=False, max_attempts=1000)
 
     def spawn_objects(self):
-        chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(130, 180))
-        diamond_coordinates = CoordinateSampler((75, 100), area_shape="rectangle", size=(130, 180))
+        #chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(120, 160))
+        #diamond_coordinates = CoordinateSampler((75, 100), area_shape="rectangle", size=(120, 160))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
+        possible_pos = self.possible_sample_positions.copy()
+        random.shuffle(possible_pos)
         self.possible_goals = []
+        inc = 0
         for idx in range(self.config["num_landmarks"]):
-            chest = Chest(physical_shape=possible_shapes[idx], radius=10, texture=ColorTexture(color=possible_colors[idx], size=10),
-                           name=possible_shapes[idx]+"_chest")
-            diamond = Diamond(chest, physical_shape=possible_shapes[idx], radius=10, texture=ColorTexture(color=possible_colors[idx], size=10),
-                              name=possible_shapes[idx]+"_diamond")
-            self.playground.add_element(chest, chest_coordinates)
-            self.playground.add_element(diamond, diamond_coordinates)
+            chest_coordinates = CoordinateSampler(possible_pos[idx + inc], area_shape="rectangle", size=(20, 40))
+            inc += 1
+            diamond_coordinates = CoordinateSampler(possible_pos[idx + inc], area_shape="rectangle", size=(20, 40))
+            chest = Chest(physical_shape=possible_shapes[idx], radius=7, texture=ColorTexture(color=possible_colors[idx], size=7),
+                           name=possible_shapes[idx]+"_chest", temporary=True)
+            diamond = Diamond(chest, physical_shape=possible_shapes[idx], radius=7, texture=ColorTexture(color=possible_colors[idx], size=7),
+                              name=possible_shapes[idx]+"_diamond", temporary=True)
+            self.playground.add_element(chest, chest_coordinates, allow_overlapping=False)
+            self.playground.add_element(diamond, diamond_coordinates, allow_overlapping=False)
             self.possible_goals.append(possible_shapes[idx]+"_chest")
 
 
@@ -237,6 +271,13 @@ class LinRoomEnv(MultiAgentEnv):
                     continue
         else:
             self.goal = random.choice(self.possible_goals)
+        
+        for element in self.playground.elements:
+            if isinstance(element, Chest):
+                if element.name == self.goal:
+                    element.set_to_condition(True)
+                else:
+                    element.set_to_condition(False)
 
     def compute_reward(self):
         active_element_names = []
@@ -249,7 +290,7 @@ class LinRoomEnv(MultiAgentEnv):
         infos = {}
         
         for agent in self._active_agents:
-            if self.goal not in active_element_names:
+            if "reward" in active_element_names:
                 reward = 1.0
             else:
                 reward = 0.0
@@ -316,10 +357,10 @@ class LinRoomEnvComm(MultiAgentEnv):
         )
 
         agent_sampler_chest = CoordinateSampler(
-            (150, 100), area_shape="rectangle", size=(260, 180)
+            (150, 100), area_shape="rectangle", size=(260, 160)
         )
         agent_sampler_diamond = CoordinateSampler(
-            (150, 100), area_shape="rectangle", size=(260, 180)
+            (150, 100), area_shape="rectangle", size=(260, 160)
         )
 
         
@@ -351,7 +392,7 @@ class LinRoomEnvComm(MultiAgentEnv):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
             agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
-            self.playground.add_agent(agent, possible_agent_samplers[idx])
+            self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=False, max_attempts=1000)
 
         self.spawn_objects()
 
@@ -446,18 +487,18 @@ class LinRoomEnvComm(MultiAgentEnv):
         return observations, info
 
     def spawn_objects(self):
-        chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(130, 180))
-        diamond_coordinates = CoordinateSampler((175, 100), area_shape="rectangle", size=(130, 180))
+        chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(120, 160))
+        diamond_coordinates = CoordinateSampler((175, 100), area_shape="rectangle", size=(120, 160))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         self.possible_goals = []
         for idx in range(self.config["num_landmarks"]):
-            chest = Chest(physical_shape=possible_shapes[idx], radius=10, texture=ColorTexture(color=possible_colors[idx], size=10),
+            chest = Chest(physical_shape=possible_shapes[idx], radius=7, texture=ColorTexture(color=possible_colors[idx], size=7),
                            name=possible_shapes[idx]+"_chest")
-            diamond = Diamond(chest, physical_shape=possible_shapes[idx], radius=10, texture=ColorTexture(color=possible_colors[idx], size=10),
+            diamond = Diamond(chest, physical_shape=possible_shapes[idx], radius=7, texture=ColorTexture(color=possible_colors[idx], size=7),
                               name=possible_shapes[idx]+"_diamond")
-            self.playground.add_element(chest, chest_coordinates)
-            self.playground.add_element(diamond, diamond_coordinates)
+            self.playground.add_element(chest, chest_coordinates, allow_overlapping=False)
+            self.playground.add_element(diamond, diamond_coordinates, allow_overlapping=False)
             self.possible_goals.append(possible_shapes[idx]+"_chest")
 
     def sample_goal(self):
@@ -529,8 +570,8 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import cv2
     config = {"num_landmarks": 1,
-              "num_agents": 1,
-              "timelimit": 1000,
+              "num_agents": 2,
+              "timelimit": 10000,
               "coop_chance":0.0,
               "message_length": 3,
               "vocab_size": 3,
@@ -539,19 +580,32 @@ if __name__ == "__main__":
               "single_goal": True,
               "single_reward": False,}
     env = LinRoomEnv(config)
+    for element in env.playground.elements:
+        if isinstance(element, Physical) and not isinstance(element, Wall):
+            print(element.name)
+            print(element.temporary)
     print(env.action_space.sample())
     obs = env.reset()
     obs_sampled = env.observation_space.sample()
     for i in range(1000):
-        print(i)
-        actions = {"agent_0": torch.Tensor(env.action_space.sample()),
-                   "agent_1": torch.Tensor(env.action_space.sample()),}
-        print(actions)
-        obs, rewards, dones, _, info = env.step(actions)
-        print(rewards)
+        #print(i)
+        #actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+        #           "agent_1": torch.Tensor(env.action_space.sample()),}
+        #print(actions)
+        #obs, rewards, dones, _, info = env.step(actions)
+        #print(rewards)
+        obs = env.reset()
         img = env.render()
         cv2.imshow('agent', img)
-        cv2.waitKey(20)
+        cv2.waitKey(60)
+
+        for e in range(4):
+            actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+                       "agent_1": torch.Tensor(env.action_space.sample()),}
+            obs, rewards, dones, _, info = env.step(actions)
+            img = env.render()
+            cv2.imshow('agent', img)
+            cv2.waitKey(10)
 
         #plt.imshow(img)
         #plt.show()
