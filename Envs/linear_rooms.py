@@ -107,6 +107,7 @@ class LinRoomEnv(MultiAgentEnv):
         self.num_agents = config["num_agents"]
         self.timelimit = config["timelimit"]
         self.coop_chance = config["coop_chance"]
+        self.random_assign = config["random_assign"]
         self.seed = config["seed"]
         self.episodes = 0
         self.time_steps = 0
@@ -233,7 +234,7 @@ class LinRoomEnv(MultiAgentEnv):
             self.agent_ids.add("agent_{0}".format(i))
             agent_ls.append(agent)
       
-        for agent, idx in zip(agent_ls, range(config["num_agents"])):
+        for agent, idx in zip(agent_ls, range(self.num_agents)):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
             agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
@@ -246,6 +247,11 @@ class LinRoomEnv(MultiAgentEnv):
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         possible_pos = self.possible_sample_positions.copy()
         random.shuffle(possible_pos)
+
+        if self.random_assign:
+            random.shuffle(possible_shapes)
+            random.shuffle(possible_colors)
+        
         self.possible_goals = []
         inc = 0
         for idx in range(self.config["num_landmarks"]):
@@ -578,7 +584,8 @@ if __name__ == "__main__":
               "message_penalty": 0.02,
               "seed": 42,
               "single_goal": True,
-              "single_reward": False,}
+              "single_reward": False,
+              "random_assign": True}
     env = LinRoomEnv(config)
     for element in env.playground.elements:
         if isinstance(element, Physical) and not isinstance(element, Wall):

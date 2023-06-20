@@ -30,6 +30,8 @@ parser.add_argument("--num_agents", type=int, default=2,
                     help="Number of agents in the environment")
 parser.add_argument("--num_landmarks", type=int, default=4,
                     help="Number of landmarks in the environment")
+parser.add_argument("--random_assign", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+                    help="If true, changes the shape and color of the landmarks randomly")
 parser.add_argument("--message_length", type=int, default=1,
                     help="Length of the message")
 parser.add_argument("--vocab_size", type=int, default=3,
