@@ -101,10 +101,10 @@ def build_storage_from_batch(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
     
-        if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
             next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
     
-    if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
@@ -150,6 +150,7 @@ def build_config(args):
         config["env_config"]["single_reward"] = args.single_reward
         config["env_config"]["vocab_size"] = args.vocab_size
         config["env_config"]["message_length"] = args.message_length
+        config["env_config"]["random_assign"] = args.random_assign
         
         config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
@@ -261,7 +262,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
     frames = []
     infos = []
 
-    if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
         next_obs, next_messages_in, next_contact, _ = env.reset(0)
     else:
         next_obs, next_contact, _ = env.reset(0)
@@ -280,7 +281,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
         actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space_shape)
         with torch.no_grad():
             for a in range(config["env_config"]["num_agents"]):
-                if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
                     actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                         next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
                         (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
@@ -304,7 +305,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
                 next_lstm_state[0][:,a] = next_agent_lstm_state[0]
                 next_lstm_state[1][:,a] = next_agent_lstm_state[1]
 
-        if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
             input_dict = {}
             movement_actions = actions[:,:, :env.movement_shape[0]]
             message_actions = actions[:,:, env.movement_shape[0]:]
@@ -320,7 +321,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
             
         infos.append(info)
         if dones["__all__"]:
-            if config["env_config"]["env_name"] == "MultiAgentLandmarksComm":
+            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
                 next_obs, next_messages_in, next_contact, _ = env.reset(0)
             else:
                 next_obs, next_contact, _ = env.reset(0)
