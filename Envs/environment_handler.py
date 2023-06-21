@@ -204,12 +204,12 @@ class EnvironmentHandlerPop():
             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
             for env in obs_in.keys():
                 #print(env)
-                if "agent_{0}".format(a) in obs_in[env].keys():
+                if "agent_{0}".format(i) in obs_in[env].keys():
                     if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
                         message[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(i)]["message_observation_space"])
                         obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(i)]["visual_observation_space"].copy())
                     else:
-                        obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)].copy())
+                        obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(i)].copy())
                     rewards[0][env] = rewards_in[env]["agent_{0}".format(i)]
                     dones[0][env] = 1.0 if dones_in[env]["agent_{0}".format(i)] else 0.0 #Return 1.0 for all steps that agent is done, not only one time
                     successes[0][env] = info[env]["agent_{0}".format(i)]["success"]
