@@ -117,6 +117,16 @@ class LinRoomEnv(MultiAgentEnv):
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
+
+        if "test" in config.keys():
+            self.test = True
+        else:
+            self.test = False
+        
+        if "agents_per_env" in config.keys():
+            self.num_agents = config["agents_per_env"]
+
+        
         
         self.engine = Engine(
             playground=self.playground, time_limit=(self.timelimit + 1),  
@@ -245,6 +255,11 @@ class LinRoomEnv(MultiAgentEnv):
         #diamond_coordinates = CoordinateSampler((75, 100), area_shape="rectangle", size=(120, 160))
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
+
+        if self.test:
+            possible_shapes = ["triangle"] #Just for testing, need to find new shapes
+            possible_colors = [[0,255,0], [0,0,255],[255,255,0], [255,0,255]] #Need to extend this to more colors and shapes for testing
+        
         possible_pos = self.possible_sample_positions.copy()
         random.shuffle(possible_pos)
 
@@ -357,6 +372,11 @@ class LinRoomEnvComm(MultiAgentEnv):
         self.agent_ids = set()
         self.single_goal = config["single_goal"]
         self.single_reward = config["single_reward"]
+
+        if "test" in config.keys():
+            self.test = True
+        else:
+            self.test = False
         
         self.engine = Engine(
             playground=self.playground, time_limit=(self.timelimit + 1),  
@@ -495,6 +515,7 @@ class LinRoomEnvComm(MultiAgentEnv):
     def spawn_objects(self):
         chest_coordinates = CoordinateSampler((225, 100), area_shape="rectangle", size=(120, 160))
         diamond_coordinates = CoordinateSampler((175, 100), area_shape="rectangle", size=(120, 160))
+        
         possible_shapes = ["circle", "rectangle", "triangle", "pentagon"]
         possible_colors = [[255,0,0], [0,255,0], [0,0,255],[255,255,0]]
         self.possible_goals = []

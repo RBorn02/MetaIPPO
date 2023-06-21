@@ -38,6 +38,39 @@ def build_storage(config, env):
               
     return storage
 
+def build_storage_pop(config, env, agent_ids):
+    """Builds a dict for the storage of the rollout data for each policy"""
+    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_envs"])
+    num_envs = config["env_config"]["num_envs"]
+    device = config["device"]
+    num_layers = config["model_config"]["lstm_layers"]
+    hidden_size = config["model_config"]["lstm_hidden_size"]
+    message_length = config["env_config"]["message_length"]
+
+
+    storage = {}
+    for a in agent_ids:
+        storage["agent_{0}".format(a)] = {
+                    "obs": torch.zeros((num_steps, num_envs) + env.observation_space.shape).to(device),
+                    "dones":torch.zeros((num_steps, num_envs)).to(device),
+                    #"is_training":torch.zeros((1, num_envs)).to(device),
+                    #"collected_env_steps":torch.zeros((num_envs)).to(device),
+                    "next_lstm_state":(
+                                        torch.zeros(num_layers, num_envs, hidden_size).to(device),
+                                        torch.zeros(num_layers, num_envs, hidden_size).to(device),
+                                        ),
+                    "rewards":torch.zeros((num_steps, num_envs)).to(device),
+                    "last_rewards":torch.zeros((num_steps, num_envs)).to(device),
+                    "actions":torch.zeros((num_steps, num_envs) + env.action_space_shape).to(device),
+                    "message_in":torch.zeros((num_steps, num_envs, message_length)).to(device),
+                    "last_actions":torch.zeros((num_steps, num_envs) + env.action_space_shape).to(device),
+                    "values":torch.zeros((num_steps, num_envs)).to(device),
+                    "logprobs":torch.zeros((num_steps, num_envs)).to(device),
+                    "contact":torch.zeros((num_steps, num_envs)).to(device),
+                    }
+              
+    return storage
+
 def get_init_tensors(config, storage, env, agent):
     num_steps = config["rollout_steps"]
     num_envs = config["env_config"]["num_envs"]
@@ -104,6 +137,55 @@ def build_storage_from_batch(batch, config):
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
             next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
     
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
+    else:
+        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
+    
+
+def build_storage_from_batch_pop(batch, config):
+    """Takes the batch returned by multiprocessing queue and builds a storage dict"""
+    storage_out = {}
+    next_obs = {}
+    next_dones = {}
+    next_messages = {}
+    success_rate = {}
+    achieved_goal = {}
+    achieved_goal_success = {}
+    next_contact = {}
+    for a in range(config["env_config"]["num_agents"]):
+        agent = "agent_{0}".format(a)
+        storage_out[agent] = {}
+        agent_batch = []
+        for i in range(len(batch)):
+            if agent in batch[i][0].keys():
+                agent_batch.append(batch[i])
+
+        storage_out[agent]["obs"] = torch.cat([agent_batch[i][0][agent]["obs"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["dones"] = torch.cat([agent_batch[i][0][agent]["dones"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["next_lstm_state"] = (torch.cat([agent_batch[i][0][agent]["next_lstm_state"][0] for i in range(len(agent_batch))], dim=1),
+                                                    torch.cat([agent_batch[i][0][agent]["next_lstm_state"][1] for i in range(len(agent_batch))], dim=1))
+        storage_out[agent]["initial_lstm_state"] = (torch.cat([agent_batch[i][0][agent]["initial_lstm_state"][0] for i in range(len(agent_batch))], dim=1),
+                                                    torch.cat([agent_batch[i][0][agent]["initial_lstm_state"][1] for i in range(len(agent_batch))], dim=1))
+        storage_out[agent]["rewards"] = torch.cat([agent_batch[i][0][agent]["rewards"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["last_rewards"] = torch.cat([agent_batch[i][0][agent]["last_rewards"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["actions"] = torch.cat([agent_batch[i][0][agent]["actions"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["last_actions"] = torch.cat([agent_batch[i][0][agent]["last_actions"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["message_in"] = torch.cat([agent_batch[i][0][agent]["message_in"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["values"] = torch.cat([agent_batch[i][0][agent]["values"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["logprobs"] = torch.cat([agent_batch[i][0][agent]["logprobs"] for i in range(len(agent_batch))], dim=1)
+        storage_out[agent]["contact"] = torch.cat([agent_batch[i][0][agent]["contact"] for i in range(len(agent_batch))], dim=1)
+
+        next_obs[agent] = torch.cat([agent_batch[i][1][agent] for i in range(len(agent_batch))], dim=1)
+        next_dones[agent] = torch.cat([agent_batch[i][2][agent] for i in range(len(agent_batch))], dim=1)
+        success_rate[agent] = sum([agent_batch[i][3][agent] for i in range(len(agent_batch))])
+        achieved_goal[agent] = torch.sum(torch.cat([agent_batch[i][4][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
+        achieved_goal_success[agent] = torch.sum(torch.cat([agent_batch[i][5][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
+        next_contact[agent] = torch.cat([agent_batch[i][6][agent] for i in range(len(agent_batch))], dim=1)
+
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+            next_messages[agent] = torch.cat([agent_batch[i][7][agent] for i in range(len(agent_batch))], dim=1)
+        
     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
     else:
@@ -256,7 +338,7 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
     return end_of_episode_info
 
 
-def record_video(config, env, policy_dict, episodes, video_path, update):
+def record_video(config, env, policy_dict, episodes, video_path, update, test=False):
     """Records a video of the policy in the environment"""
     num_steps = config["env_config"]["timelimit"] * episodes
     frames = []
@@ -327,7 +409,10 @@ def record_video(config, env, policy_dict, episodes, video_path, update):
                 next_obs, next_contact, _ = env.reset(0)
     
     #Create video from frames using different library than opencv
-    writer = imageio.get_writer(video_path + "video_epoch_{0}.mp4".format(update), fps=30, codec="libx264")
+    if test:
+        writer = imageio.get_writer(video_path + "video_test.mp4".format(update), fps=30, codec="libx264")
+    else:
+        writer = imageio.get_writer(video_path + "video_epoch_{0}.mp4".format(update), fps=30, codec="libx264")
     for frame in frames:
         writer.append_data(frame)
     writer.close()
