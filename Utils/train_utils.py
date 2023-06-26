@@ -134,10 +134,10 @@ def build_storage_from_batch(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
     
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
             next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
     
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
@@ -183,10 +183,10 @@ def build_storage_from_batch_pop(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([agent_batch[i][5][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([agent_batch[i][6][agent] for i in range(len(agent_batch))], dim=1)
 
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
             next_messages[agent] = torch.cat([agent_batch[i][7][agent] for i in range(len(agent_batch))], dim=1)
         
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
@@ -344,7 +344,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
     frames = []
     infos = []
 
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
         next_obs, next_messages_in, next_contact, _ = env.reset(0)
     else:
         next_obs, next_contact, _ = env.reset(0)
@@ -363,7 +363,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
         actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space_shape)
         with torch.no_grad():
             for a in range(config["env_config"]["num_agents"]):
-                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
                     actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                         next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
                         (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
@@ -387,7 +387,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
                 next_lstm_state[0][:,a] = next_agent_lstm_state[0]
                 next_lstm_state[1][:,a] = next_agent_lstm_state[1]
 
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
             input_dict = {}
             movement_actions = actions[:,:, :env.movement_shape[0]]
             message_actions = actions[:,:, env.movement_shape[0]:]
@@ -403,7 +403,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
             
         infos.append(info)
         if dones["__all__"]:
-            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm"]:
+            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
                 next_obs, next_messages_in, next_contact, _ = env.reset(0)
             else:
                 next_obs, next_contact, _ = env.reset(0)
