@@ -452,11 +452,13 @@ class CraftingEnv(MultiAgentEnv):
                     if self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)]:
                         infos[agent.name]["success_stage_{0}".format(s)] = 1.0
                         self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)] = False
+                    else:
+                        infos[agent.name]["success_stage_{0}".format(s)] = 0.0
                 else:
                     infos[agent.name]["success_stage_{0}".format(s)] = 0.0
                     
             for s in range(self.stage+1, 4):
-                infos[agent.name]["success_stage_{0}".format(s)] = -1.0 
+                infos[agent.name]["success_stage_{0}".format(s)] = -1.0
     
             if self.single_reward:
                 done = bool(reward) or self.playground.done or not self.engine.game_on
