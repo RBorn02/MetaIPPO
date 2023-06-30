@@ -2,6 +2,7 @@ import numpy as np
 import gymnasium as gym
 from Envs.simple_landmarks import MultiAgentLandmarks, MultiGoalEnv, MultiAgentLandmarksComm
 from Envs.linear_rooms import LinRoomEnv, LinRoomEnvComm, LinLandmarksEnv, LinLandmarksEnvComm
+from Envs.crafting_env import CraftingEnv
 from typing import Callable, Dict, List, Tuple, Optional, Union, Set, Type
 import torch
 from Utils.train_utils import get_init_tensors
@@ -56,6 +57,10 @@ class EnvironmentHandler():
             true_goal = torch.zeros(self.env_config["num_landmarks"], (self.env_config["num_envs"]))
             message = torch.zeros((1, self.env_config["num_envs"], self.env_config["message_length"]))
             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
+            stage_one_successes = torch.zeros((1, self.env_config["num_envs"]))
+            stage_two_sucecsses = torch.zeros((1, self.env_config["num_envs"]))
+            stage_three_successes = torch.zeros((1, self.env_config["num_envs"]))
+
             for env in obs_in.keys():
                 #print(env)
                 if "agent_{0}".format(a) in obs_in[env].keys():
@@ -73,6 +78,10 @@ class EnvironmentHandler():
                         landmark_contact[0][env] = 0.0
                     else:
                         landmark_contact[0][env] = 1.0
+                    if "success_stage_1" in info[env]["agent_{0}".format(a)].keys():
+                        stage_one_successes[0][env] = info[env]["agent_{0}".format(a)]["success_stage_1"]
+                        stage_two_sucecsses[0][env] = info[env]["agent_{0}".format(a)]["success_stage_2"]
+                        stage_three_successes[0][env] = info[env]["agent_{0}".format(a)]["success_stage_3"]
 
             obs_dict["agent_{0}".format(a)] = obs
             message_dict["agent_{0}".format(a)] = message
@@ -80,6 +89,12 @@ class EnvironmentHandler():
             dones_dict["agent_{0}".format(a)] = dones
             landmark_contact_dict["agent_{0}".format(a)] = landmark_contact
             infos_dict["agent_{0}".format(a)] = {"success": successes, "goal_line": goal_lines, "true_goal": true_goal}
+            
+            if "success_stage_1" in info[env]["agent_{0}".format(a)].keys():
+                infos_dict["agent_{0}".format(a)]["success_stage_1"] = stage_one_successes
+                infos_dict["agent_{0}".format(a)]["success_stage_2"] = stage_two_sucecsses
+                infos_dict["agent_{0}".format(a)]["success_stage_3"] = stage_three_successes
+
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             
         if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
@@ -140,6 +155,8 @@ class EnvironmentHandler():
             return LinRoomEnv(config)
         elif config["env_name"] == "LinLandmarksEnv":
             return LinLandmarksEnv(config)
+        elif config["env_name"] == "CraftingEnv":
+            return CraftingEnv(config)
         elif config["env_name"] == "LinRoomEnvComm":
             return LinRoomEnvComm(config)
         elif config["env_name"] == "LinLandmarksEnvComm":

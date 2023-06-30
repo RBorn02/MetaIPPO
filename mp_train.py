@@ -36,6 +36,14 @@ parser.add_argument("--message_length", type=int, default=1,
                     help="Length of the message")
 parser.add_argument("--vocab_size", type=int, default=3,
                     help="Size of the vocabulary")
+parser.add_argument("--min_prob", type=float, default=0.025,
+                    help="Min probability of a stage being sampled in crafting env")
+parser.add_argument("--max_prob", type=float, default=0.95,
+                    help="Max probability of a stage being sampled in crafting env")
+parser.add_argument("--playground_height", type=int, default=300,
+                    help="Height of the playground")
+parser.add_argument("--playground_width", type=int, default=300,
+                    help="Width of the playground")
 parser.add_argument("--num_envs", type=int, default=16,
                     help="Number of environments to vectorize")
 parser.add_argument("--time_limit", type=int, default=250,
@@ -163,6 +171,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
         last_rewards = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["rewards"][0].to(device) for a in range(config["env_config"]["num_agents"])}
         
         success_rate = {}
+        stages_success_info = {}
         achieved_goal = {}
         achieved_goal_success = {}
         for a in range(config["env_config"]["num_agents"]):
@@ -170,8 +179,9 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                                         storage["agent_{0}".format(a)]["next_lstm_state"][1].clone())
                 success_rate["agent_{0}".format(a)] = 0
                 achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
-                achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
-
+                achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
+                stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, 4)}
+                       
         rollout_step = 0
     except Exception as e:
             tb = traceback.format_exc()
@@ -257,14 +267,22 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     last_rewards["agent_{0}".format(a)] = storage["agent_{0}".format(a)]["rewards"][rollout_step].to(device)
 
                     success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
+
+                    if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                        for s in range(1, 4):
+                            num_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
+                            num_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
+                            prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1]
+                            stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success + prev_stage_success)
+
+
                     for e in range(config["env_config"]["num_envs"]):
                         idx = infos["agent_{0}".format(a)]["goal_line"][0][e].squeeze()
                         if idx >= 0:
                             achieved_goal["agent_{0}".format(a)][int(idx)] += 1.0
                             if infos["agent_{0}".format(a)]["success"][0][e]:
                                 achieved_goal_success["agent_{0}".format(a)][int(idx)] += 1.0
-                
-                
+                            
                 #Reset Environments that are done
                 for e in range(config["env_config"]["num_envs"]):
                     if dones["__all__"][e]:
@@ -283,9 +301,12 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
                     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
-                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_messages_in), block=True)
+                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
+                                         achieved_goal_success, next_contact, next_messages_in,
+                                         stages_success_info), block=True)
                     else:
-                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact), block=True)
+                        train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
+                                         achieved_goal_success, next_contact, stages_success_info), block=True)
                     done[pid] = 1
                     rollout_step = 0
                     #Last lstm state is the initial lstm state for the next rollout
@@ -295,6 +316,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                         success_rate["agent_{0}".format(a)] = 0.0
                         achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
                         achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
+                        stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, 4)}
                     
                     print("Worker {0} finished collecting data".format(pid))
                     end = time.time()
@@ -363,6 +385,9 @@ if __name__ == "__main__":
         best_average_success_rate = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
         prev_best = 0.0
 
+        stages_rolling_success_rate = {"agent_{0}".format(a): {"stage_{0}".format(s): [] for s in range(1, 4)} 
+                                       for a in range(config["env_config"]["num_agents"])}
+
 
         #Start the game
         global_step = 0
@@ -391,9 +416,9 @@ if __name__ == "__main__":
                     start = time.time()
 
                     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
-                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
+                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, stage_success_info = build_storage_from_batch(batch, config)
                     else:
-                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact = build_storage_from_batch(batch, config)
+                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, stage_success_info = build_storage_from_batch(batch, config)
             
                     #Compute the advantages for each policy
                     for a in range(config["env_config"]["num_agents"]):
@@ -433,12 +458,12 @@ if __name__ == "__main__":
                     #TODO: Add all the tracking and printing
                     training_info[update] = print_info(storage, next_dones, update, average_reward, best_average_reward,
                                                         average_success_rate, best_average_success_rate, success_rate,
-                                                        goal_line, goal_line_success)
+                                                        goal_line, goal_line_success, stage_success_info, stages_rolling_success_rate, config)
                     
                     for a in range(config["env_config"]["num_agents"]):
                         agent_info = training_info[update]["agent_{0}".format(a)]
                         if not config["debug"]:
-                            wandb.log({"agent_{0}_average_reward".format(a): agent_info["average_reward"],
+                            log_dict = {"agent_{0}_average_reward".format(a): agent_info["average_reward"],
                                 "agent_{0}_average_success_rate".format(a): agent_info["average_success_rate"],
                                     "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
                                     "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
@@ -446,7 +471,17 @@ if __name__ == "__main__":
                                     "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
                                     "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
                                     "agent_{0}_successes".format(a): agent_info["successes"],
-                                    "agent_{0}_rewards".format(a): agent_info["reward"]})
+                                    "agent_{0}_rewards".format(a): agent_info["reward"]}
+                            
+                            #Log info for the different task stages in Crafting Env
+                            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                                for s in range(1, 4):
+                                    log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
+                                    log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
+                                    log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
+                                    log_dict["agent_{0}_stage_{1}_rolling_success_rate".format(a, s)] = agent_info["stage_{0}_rolling_success_rate".format(s)]
+
+                            wandb.log(log_dict)
 
                     #Save the models for the agents if the sum of the average rewards is greater than the best average reward
                     if not config["debug"]:
