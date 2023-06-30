@@ -109,6 +109,7 @@ def build_storage_from_batch(batch, config):
     achieved_goal = {}
     achieved_goal_success = {}
     next_contact = {}
+    stage_success_info = {}
     for a in range(config["env_config"]["num_agents"]):
         agent = "agent_{0}".format(a)
         storage_out[agent] = {}
@@ -133,14 +134,20 @@ def build_storage_from_batch(batch, config):
         achieved_goal[agent] = torch.sum(torch.cat([batch[i][4][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
+
+        stage_success_info[agent] = {}
+        for s in range(1, 4):
+            num_stage_sampled = sum([batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
+            num_stage_success = sum([batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(batch))])
+            stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
     
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
             next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
     
     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
-        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
+        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
     else:
-        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
+        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
     
 
 def build_storage_from_batch_pop(batch, config):
@@ -233,6 +240,10 @@ def build_config(args):
         config["env_config"]["vocab_size"] = args.vocab_size
         config["env_config"]["message_length"] = args.message_length
         config["env_config"]["random_assign"] = args.random_assign
+        config["env_config"]["min_prob"] = args.min_prob
+        config["env_config"]["max_prob"] = args.max_prob
+        config["env_config"]["playground_height"] = args.playground_height
+        config["env_config"]["playground_width"] = args.playground_width
         
         config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
@@ -271,6 +282,8 @@ def build_config(args):
 
     return config
 
+
+
 def handle_dones(dones):
     """Handles the dones. Converts bools to binary tensor for each agent"""
     dones_out =  {}
@@ -283,8 +296,10 @@ def handle_dones(dones):
     return dones_out
 
 
+
 def print_info(storage, next_dones, epoch, average_reward_dict, best_average_reward_dict, 
-               success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success):
+               success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success,
+               stage_success_info, stages_average_success_rate, config):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
@@ -300,9 +315,21 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
         if epoch > 25:
            average_reward = sum(average_reward_dict[a][-25:]) / 25
            average_success_rate = sum(success_rate_dict[a][-25:]) / 25
+           
+           for s in range(1, 4):
+                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
+
         else:
             average_reward = sum(average_reward_dict[a]) / len(average_reward_dict[a])
             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
+
+            for s in range(1, 4):
+                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
+
         if average_reward > best_average_reward_dict[a]:
             best_average_reward_dict[a] = average_reward
  
@@ -320,7 +347,7 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
                                                      "best_average_reward": best_average_reward_dict[a],
                                                      "best_success_rate": best_sucess_rate_dict[a],
                                                      "achieved_goal": achieved_goal[a],
-                                                     "achieved_goal_success": achieved_goal_success[a]}
+                                                     "achieved_goal_success": achieved_goal_success[a],}
         
         print("Agent_{0}: Completed {1} Episodes; ".format(id, completed))
 
@@ -328,14 +355,34 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
                                                                                     episodic_reward, average_reward, best_average_reward_dict[a]))
 
         print("Successes: {0}; Success Rate: {1}; Rolling Average Sucess Rate: {2}; Best Rolling Average Sucess Rate: {3}".format(successes, success_rate, 
-                                                                                                            average_success_rate, best_sucess_rate_dict[a]))
-        for g in range(achieved_goal[a].shape[0]):
-            print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
+                                                                                                          average_success_rate, best_sucess_rate_dict[a]))
         
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "MultiAgentLandmarks"]:
+            for g in range(achieved_goal[a].shape[0]):
+                print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
+        elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            print(stage_success_info)
+            for s in range(1, 4):
+                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                stage_success_rate = stage_successes / (stage_samples + 1e-8)
+                
+                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_successes".format(s)] = stage_successes
+                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_samples".format(s)] = stage_samples
+                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_success_rate".format(s)] = stage_success_rate
+                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_rolling_success_rate".format(s)] = stages_average_success_rate[a]["stage_{0}".format(s)][-1]
+
+                print("Stage {0}: {1} Successes; {2} Samples; {3} Success Rate; {4} Rolling Average Success Rate".format(s, 
+                        stage_successes, stage_samples, stage_success_rate, stages_average_success_rate[a]["stage_{0}".format(s)][-1]))
+
+                
+
         id += 1
         
     
     return end_of_episode_info
+
+
 
 
 def record_video(config, env, policy_dict, episodes, video_path, update, test=False):
@@ -418,6 +465,8 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
     writer.close()
 
     save_info_to_csv(infos, video_path + "info_epoch_{0}.csv".format(update))
+
+
 
 
 def flatten_dict(data, parent_key='', sep='.'):
