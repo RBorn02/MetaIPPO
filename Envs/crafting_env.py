@@ -402,6 +402,7 @@ class CraftingEnv(MultiAgentEnv):
                     end_condition_object = self.task_dict["end_condition_object"]
                     if end_condition_object.name in existing_playground_element_names:
                         self.success_rate_dict["stage_{0}".format(s)].append(True)
+                        reward = True
                     else:
                         self.success_rate_dict["stage_{0}".format(s)].append(False)
                 else:
@@ -415,7 +416,6 @@ class CraftingEnv(MultiAgentEnv):
 
                         if end_condition_object_exists is False and self.end_condition_object_has_existed is True:
                             self.success_rate_dict["stage_{0}".format(s)].append(True)
-                            print("here1", self.task_dict)
                             reward = True
                         else:
                             self.success_rate_dict["stage_{0}".format(s)].append(False)
@@ -521,11 +521,12 @@ class CraftingEnv(MultiAgentEnv):
             self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=True, max_attempts=10)
     
     def stage_scheduler(self):
-        if self.episodes > 100:
+        if self.episodes > 1:
             # Calculate rolling averages
             stage1_rolling_avg = np.mean(self.success_rate_dict["stage_1"][-25:])
             stage2_rolling_avg = np.mean(self.success_rate_dict["stage_2"][-25:])
             stage3_rolling_avg = np.mean(self.success_rate_dict["stage_3"][-25:])
+
             
             # Calculate probabilities
             stage1_probability = max(0.95 - stage1_rolling_avg, 0.025)
