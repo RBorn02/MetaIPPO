@@ -531,6 +531,7 @@ class CraftingEnv(MultiAgentEnv):
             stage1_probability = max(0.95 - stage1_rolling_avg, 0.025)
             stage2_probability = max(min(stage1_rolling_avg - stage2_rolling_avg, 0.925), 0.025)
             stage3_probability = max(min(stage2_rolling_avg - stage3_rolling_avg, 0.9), 0.025)
+
         
         else:
             stage1_probability = 0.95
@@ -538,6 +539,10 @@ class CraftingEnv(MultiAgentEnv):
             stage3_probability = 0.025
 
         stages_probabilities = [stage1_probability, stage2_probability, stage3_probability]
+
+        #Normalize probabilities
+        stages_probabilities = [p / sum(stages_probabilities) for p in stages_probabilities]
+
         stage = np.random.choice([1, 2, 3], p=stages_probabilities)
         return stage
 
