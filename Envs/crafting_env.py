@@ -527,7 +527,6 @@ class CraftingEnv(MultiAgentEnv):
             stage2_rolling_avg = np.mean(self.success_rate_dict["stage_2"][-25:])
             stage3_rolling_avg = np.mean(self.success_rate_dict["stage_3"][-25:])
 
-            stage1_rolling_avg = 0.05
             
             # Calculate probabilities
             stage1_probability = max(0.95 - stage1_rolling_avg, 0.025)
