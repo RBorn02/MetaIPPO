@@ -521,7 +521,7 @@ class CraftingEnv(MultiAgentEnv):
             self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=True, max_attempts=10)
     
     def stage_scheduler(self):
-        if self.episodes > 1:
+        if self.episodes > 100:
             # Calculate rolling averages
             stage1_rolling_avg = np.mean(self.success_rate_dict["stage_1"][-25:])
             stage2_rolling_avg = np.mean(self.success_rate_dict["stage_2"][-25:])
