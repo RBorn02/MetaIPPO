@@ -306,7 +306,8 @@ class CraftingEnv(MultiAgentEnv):
 
         self.success_rate_dict = {}
         for s in range(1, 4):
-            self.success_rate_dict["stage_{0}".format(s)] = []
+            self.success_rate_dict["stage_{0}".format(s)] = [False]
+
 
 
     def process_obs(self):
@@ -520,25 +521,26 @@ class CraftingEnv(MultiAgentEnv):
             self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=True, max_attempts=10)
     
     def stage_scheduler(self):
-        if self.episodes > 25:
-            average_stage_one = round(sum(self.success_rate_dict["stage_1"][-25:]) / 25, 4)
-            average_stage_two = round(sum(self.success_rate_dict["stage_2"][-25:]) / 25, 4)
-            average_stage_three = round(sum(self.success_rate_dict["stage_3"][-25:]) / 25, 4)
+        if self.episodes > 100:
+            # Calculate rolling averages
+            stage1_rolling_avg = np.mean(self.success_rate_dict["stage_1"][-25:])
+            stage2_rolling_avg = np.mean(self.success_rate_dict["stage_2"][-25:])
+            stage3_rolling_avg = np.mean(self.success_rate_dict["stage_3"][-25:])
+            
+            # Calculate probabilities
+            stage1_probability = max(0.95 - stage1_rolling_avg, 0.025)
+            stage2_probability = max(min(stage1_rolling_avg - stage2_rolling_avg, 0.925), 0.025)
+            stage3_probability = max(min(stage2_rolling_avg - stage3_rolling_avg, 0.9), 0.025)
         
-            average_sucess_rates = [average_stage_one, average_stage_two, average_stage_three]
-
-            weights = [1 / max(rate, 1e-6) for rate in average_sucess_rates]
-            weights_sum = sum(weights)
-            normalized_weights = [weight / weights_sum for weight in weights]
-
-            # Adjust probabilities to respect the minimum and maximum probabilities
-            probabilities = [
-                max(min_prob, min(normalized_weights[i], max_prob))
-                for i, min_prob, max_prob in zip(range(len(normalized_weights)), [self.min_prob] * 3, [self.max_prob] * 3)
-            ]
         else:
-            probabilities = [0.95, 0.025, 0.025]
-        return random.choices(range(1, 4), weights=probabilities)[0]
+            stage1_probability = 0.95
+            stage2_probability = 0.025
+            stage3_probability = 0.025
+
+        stages_probabilities = [stage1_probability, stage2_probability, stage3_probability]
+        stage = np.random.choice([1, 2, 3], p=stages_probabilities)
+        return stage
+
     
     def sample_task_tree(self, num_stages, end_conditions, possible_objects):
         possible_object_types = possible_objects.copy()
