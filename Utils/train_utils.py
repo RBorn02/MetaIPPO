@@ -135,16 +135,17 @@ def build_storage_from_batch(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
 
-        stage_success_info[agent] = {}
-        for s in range(1, 4):
-            num_stage_sampled = sum([batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
-            num_stage_success = sum([batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(batch))])
-            stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            stage_success_info[agent] = {}
+            for s in range(1, 4):
+                num_stage_sampled = sum([batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
+                num_stage_success = sum([batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(batch))])
+                stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
     
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
     
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
@@ -190,10 +191,10 @@ def build_storage_from_batch_pop(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([agent_batch[i][5][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([agent_batch[i][6][agent] for i in range(len(agent_batch))], dim=1)
 
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             next_messages[agent] = torch.cat([agent_batch[i][7][agent] for i in range(len(agent_batch))], dim=1)
         
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
@@ -316,19 +317,21 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
            average_reward = sum(average_reward_dict[a][-25:]) / 25
            average_success_rate = sum(success_rate_dict[a][-25:]) / 25
            
-           for s in range(1, 4):
-                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
-                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
-                stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
+           if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            for s in range(1, 4):
+                    stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                    stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                    stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
 
         else:
             average_reward = sum(average_reward_dict[a]) / len(average_reward_dict[a])
             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
 
-            for s in range(1, 4):
-                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
-                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
-                stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                for s in range(1, 4):
+                    stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                    stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                    stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
 
         if average_reward > best_average_reward_dict[a]:
             best_average_reward_dict[a] = average_reward
@@ -374,6 +377,8 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
 
                 print("Stage {0}: {1} Successes; {2} Samples; {3} Success Rate; {4} Rolling Average Success Rate".format(s, 
                         stage_successes, stage_samples, stage_success_rate, stages_average_success_rate[a]["stage_{0}".format(s)][-1]))
+        else:
+            pass
 
                 
 
@@ -391,7 +396,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
     frames = []
     infos = []
 
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
         next_obs, next_messages_in, next_contact, _ = env.reset(0)
     else:
         next_obs, next_contact, _ = env.reset(0)
@@ -410,7 +415,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
         actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space_shape)
         with torch.no_grad():
             for a in range(config["env_config"]["num_agents"]):
-                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                     actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                         next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
                         (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
@@ -434,7 +439,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
                 next_lstm_state[0][:,a] = next_agent_lstm_state[0]
                 next_lstm_state[1][:,a] = next_agent_lstm_state[1]
 
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             input_dict = {}
             movement_actions = actions[:,:, :env.movement_shape[0]]
             message_actions = actions[:,:, env.movement_shape[0]:]
@@ -450,7 +455,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
             
         infos.append(info)
         if dones["__all__"]:
-            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                 next_obs, next_messages_in, next_contact, _ = env.reset(0)
             else:
                 next_obs, next_contact, _ = env.reset(0)

@@ -517,11 +517,11 @@ class CraftingEnv(MultiAgentEnv):
         for agent, idx in zip(agent_ls, range(self.num_agents)):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
-            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, normalize=True))
+            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, max_range=160, normalize=True))
             self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=True, max_attempts=10)
     
     def stage_scheduler(self):
-        if self.episodes > 1:
+        if self.episodes > 100:
             # Calculate rolling averages
             stage1_rolling_avg = np.mean(self.success_rate_dict["stage_1"][-25:])
             stage2_rolling_avg = np.mean(self.success_rate_dict["stage_2"][-25:])
@@ -535,9 +535,9 @@ class CraftingEnv(MultiAgentEnv):
 
         
         else:
-            stage1_probability = 0.95
+            stage1_probability = 0.975
             stage2_probability = 0.025
-            stage3_probability = 0.025
+            stage3_probability = 0.0
 
         stages_probabilities = [stage1_probability, stage2_probability, stage3_probability]
 

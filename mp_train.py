@@ -131,7 +131,7 @@ device = config["device"]
 env = EnvironmentHandler(config)
 
 #Build the agents with their corresponding optimizers
-if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
     agent_dict = {"agent_{0}".format(a): CommsLSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
 else:
     agent_dict = {"agent_{0}".format(a): LSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
@@ -161,7 +161,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
         env = EnvironmentHandler(config)
         storage = build_storage(config, env)
 
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             next_obs, next_messages_in, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
         else:
             next_obs, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
@@ -204,13 +204,13 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     storage["agent_{0}".format(a)]["last_actions"][rollout_step] = last_agent_actions
                     storage["agent_{0}".format(a)]["last_rewards"][rollout_step] = last_agent_rewards
 
-                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                         next_agent_message_in = next_messages_in["agent_{0}".format(a)].to(device)
                         storage["agent_{0}".format(a)]["message_in"][rollout_step] = next_agent_message_in
                 
                     #Get the actions from the policy
                     with torch.no_grad():
-                        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                             
                             action, log_prob, _, value, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                                                                                                                     next_agent_obs,
@@ -236,7 +236,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     storage["agent_{0}".format(a)]["next_lstm_state"] = (next_agent_lstm_state[0], next_agent_lstm_state[1])
 
                 #Take a step in the environment
-                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                     input_dict = {}
                     actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step][:,:-config["env_config"]["message_length"]].unsqueeze(dim=1)
                                     for a in range(config["env_config"]["num_agents"])], dim=1)
@@ -287,7 +287,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 for e in range(config["env_config"]["num_envs"]):
                     if dones["__all__"][e]:
                         for a in range(config["env_config"]["num_agents"]):
-                            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                                 reset_obs, reset_messages, reset_contact, _ = env.reset(e)
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                                 next_messages_in["agent_{0}".format(a)][0][e] = reset_messages["agent_{0}".format(a)].to(device)
@@ -300,7 +300,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
-                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
                                          achieved_goal_success, next_contact, next_messages_in,
                                          stages_success_info), block=True)
@@ -415,7 +415,7 @@ if __name__ == "__main__":
                         batch.append(train_queue.get())
                     start = time.time()
 
-                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                         storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, stage_success_info = build_storage_from_batch(batch, config)
                     else:
                         storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, stage_success_info = build_storage_from_batch(batch, config)
@@ -428,7 +428,7 @@ if __name__ == "__main__":
                                                                                 next_dones["agent_{0}".format(a)],
                                                                                 next_contact["agent_{0}".format(a)],
                                                                                 next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] in 
-                                                                                ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"] else None,
+                                                                                ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"] else None,
                                                                                 )
                         
                         storage["agent_{0}".format(a)]["advantages"] = advantages
