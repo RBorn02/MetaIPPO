@@ -136,7 +136,7 @@ class LSTM_PPO_Policy():
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+        if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             b_messages_in = storage["message_in"].reshape((-1, self.config["env_config"]["message_length"]))
             b_messages_in = b_messages_in.to(device)
 
@@ -154,7 +154,7 @@ class LSTM_PPO_Policy():
                 mbenvinds = envinds[start:end]
                 mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
 
-                if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                     _, newlogprob, entropy, newvalue, _ = self.agent.get_action_and_value(
                         b_obs[mb_inds],
                         (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
@@ -370,7 +370,7 @@ class LSTM_PPO_Policy_Pop():
         b_returns = returns.reshape(-1)
         b_values = values.reshape(-1)
 
-        if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+        if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             b_messages_in = storage["message_in"].reshape((-1, self.config["env_config"]["message_length"]))
             b_messages_in = b_messages_in.to(device)
 
@@ -388,7 +388,7 @@ class LSTM_PPO_Policy_Pop():
                 mbenvinds = envinds[start:end]
                 mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
 
-                if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm"]:
+                if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                     _, newlogprob, entropy, newvalue, _ = self.agent.get_action_and_value(
                         b_obs[mb_inds],
                         (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),
