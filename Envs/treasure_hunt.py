@@ -108,7 +108,6 @@ class TreasureHunt(MultiAgentEnv):
         super(TreasureHunt, self).__init__()
 
         self.timelimit = config["timelimit"]
-        self.single_reward = config["single_reward"]
         self.random_assign = config["random_assign"]
         self.seed = config["seed"]
         self.truncated = False
@@ -209,6 +208,7 @@ class TreasureHunt(MultiAgentEnv):
         self.engine.elapsed_time = 0
         self.episodes += 1
         self.time_steps = 0
+        self.achieved_goal = False
 
         self.engine.update_observations()
         observations = self.process_obs()
@@ -270,7 +270,7 @@ class TreasureHunt(MultiAgentEnv):
         goal = MultiAgentRewardZone(reward=1, 
                                     physical_shape="rectangle",
                                     texture=ColorTexture(color=[255, 0, 0], size=(40, 20)),
-                                    size=(40, 20))
+                                    size=(40, 20), temporary=True)
         possible_positions = (((35, 185), 0), ((200, 185), 0), ((280, 185), 0), ((365, 185),0 ))
         self.playground.add_element(goal, random.choice(possible_positions))
     
@@ -280,24 +280,27 @@ class TreasureHunt(MultiAgentEnv):
         dones = {}
         truncateds = {}
         info = {}
-       
+
         for agent in self._active_agents:
-            if agent.reward == 1:
-                reward = 1
-            else:
-                reward = 0
+            if agent.reward >= 1:
+                self.achieved_goal = True
+
+        if self.achieved_goal:
+            reward = 1
+        else:
+            reward = 0
+        
+        for agent in self._active_agents:
             rewards[agent.name] = reward
             if self.agent_first_reward_dict[agent.name] and bool(reward):
                 self.agent_first_reward_dict[agent.name] = False
-                info[agent.name] = {"success": 1.0, "goal_line": agent.reward - 1, "true_goal": self.agent_goal_dict[agent.name]}
+                info[agent.name] = {"success": 1.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
             else:
-                info[agent.name] = {"success": 0.0, "goal_line": agent.reward - 1, "true_goal": self.agent_goal_dict[agent.name]}
+                info[agent.name] = {"success": 0.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
 
-            if self.single_reward:
-                done = bool(reward) or self.playground.done or not self.engine.game_on
-            else:
-                rewards[agent.name] = 0.1 * reward
-                done = self.playground.done or not self.engine.game_on
+           
+            rewards[agent.name] = 0.1 * reward
+            done = self.playground.done or not self.engine.game_on
 
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
@@ -317,7 +320,7 @@ class TreasureHunt(MultiAgentEnv):
         return np.clip(actions, self.action_space.low[act_idx], self.action_space.high[act_idx])
     
     def render(self):
-         image = self.engine.generate_agent_image(self.playground.agents[1])
+         image = self.engine.generate_agent_image(self.playground.agents[1], max_size_pg=400)
          return image
        
 
@@ -466,6 +469,7 @@ class TreasureHuntComm(MultiAgentEnv):
         self.engine.elapsed_time = 0
         self.episodes += 1
         self.time_steps = 0
+        self.achieved_goal = False
 
         self.engine.update_observations()
         observations = self.process_obs(init_messages)
@@ -527,7 +531,7 @@ class TreasureHuntComm(MultiAgentEnv):
         goal = MultiAgentRewardZone(reward=1, 
                                     physical_shape="rectangle",
                                     texture=ColorTexture(color=[255, 0, 0], size=(40, 20)),
-                                    size=(40, 20))
+                                    size=(40, 20), temporary=True)
         possible_positions = (((35, 185), 0), ((200, 185), 0), ((280, 185), 0), ((365, 185),0 ))
         self.playground.add_element(goal, random.choice(possible_positions))
     
@@ -537,18 +541,24 @@ class TreasureHuntComm(MultiAgentEnv):
         dones = {}
         truncateds = {}
         info = {}
+
+        for agent in self._active_agents:
+            if agent.reward >= 1:
+                self.achieved_goal = True
+
+        if self.achieved_goal:
+            reward = 1
+        else:
+            reward = 0
+
        
         for agent in self._active_agents:
-            if agent.reward == 1:
-                reward = 1
-            else:
-                reward = 0
             rewards[agent.name] = reward
             if self.agent_first_reward_dict[agent.name] and bool(reward):
                 self.agent_first_reward_dict[agent.name] = False
-                info[agent.name] = {"success": 1.0, "goal_line": agent.reward - 1, "true_goal": self.agent_goal_dict[agent.name]}
+                info[agent.name] = {"success": 1.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
             else:
-                info[agent.name] = {"success": 0.0, "goal_line": agent.reward - 1, "true_goal": self.agent_goal_dict[agent.name]}
+                info[agent.name] = {"success": 0.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
 
             if self.single_reward:
                 done = bool(reward) or self.playground.done or not self.engine.game_on
@@ -575,7 +585,7 @@ class TreasureHuntComm(MultiAgentEnv):
                        self.action_space["actuators_action_space"].high[act_idx])   
     
     def render(self):
-         image = self.engine.generate_agent_image(self.playground.agents[1])
+         image = self.engine.generate_agent_image(self.playground.agents[1], max_size_pg=400)
          return image
        
     def close(self):
