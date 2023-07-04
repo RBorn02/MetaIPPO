@@ -197,6 +197,7 @@ class TreasureHunt(MultiAgentEnv):
                 self.playground.remove_agent(agent)
         self.engine.reset()
 
+        self.goal_pos = None
         self.spawn_agents()
         self.spawn_goal()
         info = {}
@@ -208,7 +209,6 @@ class TreasureHunt(MultiAgentEnv):
         self.engine.elapsed_time = 0
         self.episodes += 1
         self.time_steps = 0
-        self.achieved_goal = False
 
         self.engine.update_observations()
         observations = self.process_obs()
@@ -267,12 +267,24 @@ class TreasureHunt(MultiAgentEnv):
                 self.playground.add_agent(agent, possible_agent_samplers[1], allow_overlapping=True, max_attempts=10)
 
     def spawn_goal(self):
+        for element in self.playground.elements:
+            if isinstance(element, MultiAgentRewardZone):
+                self.playground._remove_element_from_playground(element)
+
         goal = MultiAgentRewardZone(reward=1, 
                                     physical_shape="rectangle",
                                     texture=ColorTexture(color=[255, 0, 0], size=(40, 20)),
                                     size=(40, 20), temporary=True)
+        
         possible_positions = (((35, 185), 0), ((280, 185), 0), ((365, 185),0 ))
-        self.playground.add_element(goal, random.choice(possible_positions))
+
+        if self.goal_pos is not None:
+            possible_goal_pos_removed = [pos for pos in possible_positions if pos != self.goal_pos]
+        else:
+            possible_goal_pos_removed = possible_positions
+
+        self.goal_pos = random.choice(possible_goal_pos_removed)
+        self.playground.add_element(goal, self.goal_pos)
     
     def compute_reward(self):
         
@@ -281,15 +293,17 @@ class TreasureHunt(MultiAgentEnv):
         truncateds = {}
         info = {}
 
+        achieved_goal = False
         for agent in self._active_agents:
             if agent.reward >= 1:
-                self.achieved_goal = True
+                achieved_goal = True
 
-        if self.achieved_goal:
-            reward = 1
+        if achieved_goal:
+            reward = 5
         else:
             reward = 0
-        
+
+       
         for agent in self._active_agents:
             rewards[agent.name] = reward
             if self.agent_first_reward_dict[agent.name] and bool(reward):
@@ -298,13 +312,16 @@ class TreasureHunt(MultiAgentEnv):
             else:
                 info[agent.name] = {"success": 0.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
 
-           
-            rewards[agent.name] = 0.1 * reward
+            rewards[agent.name] = reward
             done = self.playground.done or not self.engine.game_on
 
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
             truncateds[agent.name] = truncated
+            agent.reward = 0
+        
+        if achieved_goal:
+            self.spawn_goal()
         
         dones["__all__"] = all(dones.values())
         truncateds["__all__"] = all(truncateds.values())
@@ -450,6 +467,7 @@ class TreasureHuntComm(MultiAgentEnv):
                 self.playground.remove_agent(agent)
         self.engine.reset()
 
+        self.goal_pos = None
         self.spawn_agents()
         self.spawn_goal()
         info = {}
@@ -463,7 +481,6 @@ class TreasureHuntComm(MultiAgentEnv):
         self.engine.elapsed_time = 0
         self.episodes += 1
         self.time_steps = 0
-        self.achieved_goal = False
 
         self.engine.update_observations()
         observations = self.process_obs(init_messages)
@@ -522,12 +539,24 @@ class TreasureHuntComm(MultiAgentEnv):
                 self.playground.add_agent(agent, possible_agent_samplers[1], allow_overlapping=True, max_attempts=10)
 
     def spawn_goal(self):
+        for element in self.playground.elements:
+            if isinstance(element, MultiAgentRewardZone):
+                self.playground._remove_element_from_playground(element)
+
         goal = MultiAgentRewardZone(reward=1, 
                                     physical_shape="rectangle",
                                     texture=ColorTexture(color=[255, 0, 0], size=(40, 20)),
                                     size=(40, 20), temporary=True)
+        
         possible_positions = (((35, 185), 0), ((280, 185), 0), ((365, 185),0 ))
-        self.playground.add_element(goal, random.choice(possible_positions))
+
+        if self.goal_pos is not None:
+            possible_goal_pos_removed = [pos for pos in possible_positions if pos != self.goal_pos]
+        else:
+            possible_goal_pos_removed = possible_positions
+
+        self.goal_pos = random.choice(possible_goal_pos_removed)
+        self.playground.add_element(goal, self.goal_pos)
     
     def compute_reward(self):
         
@@ -535,13 +564,14 @@ class TreasureHuntComm(MultiAgentEnv):
         dones = {}
         truncateds = {}
         info = {}
-
+        
+        achieved_goal = False
         for agent in self._active_agents:
             if agent.reward >= 1:
-                self.achieved_goal = True
+                achieved_goal = True
 
-        if self.achieved_goal:
-            reward = 1
+        if achieved_goal:
+            reward = 5
         else:
             reward = 0
 
@@ -554,13 +584,16 @@ class TreasureHuntComm(MultiAgentEnv):
             else:
                 info[agent.name] = {"success": 0.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
 
-            rewards[agent.name] = 0.1 * reward
+            rewards[agent.name] = reward
             done = self.playground.done or not self.engine.game_on
 
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
             truncateds[agent.name] = truncated
+            agent.reward = 0
         
+        if achieved_goal:
+            self.spawn_goal()
         
         dones["__all__"] = all(dones.values())
         truncateds["__all__"] = all(truncateds.values())
@@ -611,10 +644,10 @@ if __name__ == "__main__":
         cv2.waitKey(30)
 
         for e in range(4):
-            #actions = {"agent_0": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
-            #                       "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())},
-            #           "agent_1": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
-            #                       "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())}}
+        #    actions = {"agent_0": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
+        #                           "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())},
+        #               "agent_1": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
+        #                           "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())}}
 
             actions = {"agent_0": torch.Tensor(env.action_space.sample()),
                        "agent_1": torch.Tensor(env.action_space.sample())}
