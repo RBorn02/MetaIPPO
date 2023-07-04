@@ -124,7 +124,7 @@ class TreasureHunt(MultiAgentEnv):
                         texture=ColorTexture(color=[100, 100, 100], size=(380, 10)), 
                         name="lower_wall",
                         mass=100, movable=False, graspable=False)
-        physical_block = Physical(physical_shape="rectangle", size=(120, 160),
+        physical_block = Physical(physical_shape="rectangle", size=(160, 160),
                         texture=ColorTexture(color=[100, 100, 100], size=(280, 280)),
                         name="physical_block",
                         mass=100, movable=False, graspable=False)
@@ -138,7 +138,7 @@ class TreasureHunt(MultiAgentEnv):
                         mass=100, movable=False, graspable=False)
 
         self.playground.add_element(lower_wall, ((200, 200),0))
-        self.playground.add_element(physical_block, ((120, 125),0))
+        self.playground.add_element(physical_block, ((145, 125),0))
         self.playground.add_element(tunnel_wall1, ((240, 125),0))
         self.playground.add_element(tunnel_wall2, ((320, 125),0))
 
@@ -215,8 +215,8 @@ class TreasureHunt(MultiAgentEnv):
         return observations, info
     
     def spawn_agents(self):
-        speaker_agent_coordinates = CoordinateSampler((200, 230), area_shape="rectangle", size=(400, 20))
-        listener_agent_coordinates = CoordinateSampler((200, 20), area_shape="rectangle", size=(400, 20))
+        speaker_agent_coordinates = CoordinateSampler((200, 230), area_shape="rectangle", size=(360, 20))
+        listener_agent_coordinates = CoordinateSampler((200, 20), area_shape="rectangle", size=(360, 20))
         possible_agent_samplers = [speaker_agent_coordinates, listener_agent_coordinates]
 
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
@@ -271,7 +271,7 @@ class TreasureHunt(MultiAgentEnv):
                                     physical_shape="rectangle",
                                     texture=ColorTexture(color=[255, 0, 0], size=(40, 20)),
                                     size=(40, 20), temporary=True)
-        possible_positions = (((35, 185), 0), ((200, 185), 0), ((280, 185), 0), ((365, 185),0 ))
+        possible_positions = (((35, 185), 0), ((280, 185), 0), ((365, 185),0 ))
         self.playground.add_element(goal, random.choice(possible_positions))
     
     def compute_reward(self):
@@ -305,12 +305,6 @@ class TreasureHunt(MultiAgentEnv):
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
             truncateds[agent.name] = truncated
-        
-        [
-            self._active_agents.remove(agent)
-            for agent in self._active_agents
-            if dones[agent.name]
-        ]
         
         dones["__all__"] = all(dones.values())
         truncateds["__all__"] = all(truncateds.values())
@@ -353,7 +347,7 @@ class TreasureHuntComm(MultiAgentEnv):
                         texture=ColorTexture(color=[100, 100, 100], size=(380, 10)), 
                         name="lower_wall",
                         mass=100, movable=False, graspable=False)
-        physical_block = Physical(physical_shape="rectangle", size=(120, 160),
+        physical_block = Physical(physical_shape="rectangle", size=(160, 160),
                         texture=ColorTexture(color=[100, 100, 100], size=(280, 280)),
                         name="physical_block",
                         mass=100, movable=False, graspable=False)
@@ -367,7 +361,7 @@ class TreasureHuntComm(MultiAgentEnv):
                         mass=100, movable=False, graspable=False)
 
         self.playground.add_element(lower_wall, ((200, 200),0))
-        self.playground.add_element(physical_block, ((120, 125),0))
+        self.playground.add_element(physical_block, ((145, 125),0))
         self.playground.add_element(tunnel_wall1, ((240, 125),0))
         self.playground.add_element(tunnel_wall2, ((320, 125),0))
 
@@ -476,8 +470,8 @@ class TreasureHuntComm(MultiAgentEnv):
         return observations, info
     
     def spawn_agents(self):
-        speaker_agent_coordinates = CoordinateSampler((200, 230), area_shape="rectangle", size=(400, 20))
-        listener_agent_coordinates = CoordinateSampler((200, 20), area_shape="rectangle", size=(400, 20))
+        speaker_agent_coordinates = CoordinateSampler((200, 225), area_shape="rectangle", size=(360, 10))
+        listener_agent_coordinates = CoordinateSampler((200, 25), area_shape="rectangle", size=(360, 10))
         possible_agent_samplers = [speaker_agent_coordinates, listener_agent_coordinates]
 
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
@@ -532,7 +526,7 @@ class TreasureHuntComm(MultiAgentEnv):
                                     physical_shape="rectangle",
                                     texture=ColorTexture(color=[255, 0, 0], size=(40, 20)),
                                     size=(40, 20), temporary=True)
-        possible_positions = (((35, 185), 0), ((200, 185), 0), ((280, 185), 0), ((365, 185),0 ))
+        possible_positions = (((35, 185), 0), ((280, 185), 0), ((365, 185),0 ))
         self.playground.add_element(goal, random.choice(possible_positions))
     
     def compute_reward(self):
@@ -560,21 +554,13 @@ class TreasureHuntComm(MultiAgentEnv):
             else:
                 info[agent.name] = {"success": 0.0, "goal_line": 0, "true_goal": self.agent_goal_dict[agent.name]}
 
-            if self.single_reward:
-                done = bool(reward) or self.playground.done or not self.engine.game_on
-            else:
-                rewards[agent.name] = 0.1 * reward
-                done = self.playground.done or not self.engine.game_on
+            rewards[agent.name] = 0.1 * reward
+            done = self.playground.done or not self.engine.game_on
 
             truncated = self.playground.done or not self.engine.game_on
             dones[agent.name] = done
             truncateds[agent.name] = truncated
         
-        [
-            self._active_agents.remove(agent)
-            for agent in self._active_agents
-            if dones[agent.name]
-        ]
         
         dones["__all__"] = all(dones.values())
         truncateds["__all__"] = all(truncateds.values())
@@ -590,3 +576,50 @@ class TreasureHuntComm(MultiAgentEnv):
        
     def close(self):
         self.engine.terminate()
+
+
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    import cv2
+    config = {"num_landmarks": 1,
+              "num_agents": 2,
+              "timelimit": 4,
+              "coop_chance":0.0,
+              "message_length": 3,
+              "vocab_size": 3,
+              "message_penalty": 0.02,
+              "seed": 42,
+              "playground_width": 300,
+              "playground_height": 300,
+              "single_goal": True,
+              "single_reward": False,
+              "random_assign": False,
+              "min_prob": 0.025,
+              "max_prob": 0.95,}
+    env = TreasureHunt(config)
+    print(env.action_space.sample())
+    for i in range(1000):
+        #print(i)
+        #actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+        #           "agent_1": torch.Tensor(env.action_space.sample()),}
+        #print(actions)
+        #obs, rewards, dones, _, info = env.step(actions)
+        #print(rewards)
+        obs = env.reset()
+        img = env.render()
+        cv2.imshow('agent', img)
+        cv2.waitKey(30)
+
+        for e in range(4):
+            #actions = {"agent_0": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
+            #                       "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())},
+            #           "agent_1": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
+            #                       "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())}}
+
+            actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+                       "agent_1": torch.Tensor(env.action_space.sample())}
+
+            obs, rewards, dones, _, info = env.step(actions)
+            img = env.render()
+            cv2.imshow('agent', img)
+            cv2.waitKey(30)
