@@ -1,0 +1,50 @@
+diff --git a/Envs/__pycache__/environment_handler.cpython-310.pyc b/Envs/__pycache__/environment_handler.cpython-310.pyc
+index a389423..b89f111 100644
+Binary files a/Envs/__pycache__/environment_handler.cpython-310.pyc and b/Envs/__pycache__/environment_handler.cpython-310.pyc differ
+diff --git a/Envs/__pycache__/simple_landmarks.cpython-310.pyc b/Envs/__pycache__/simple_landmarks.cpython-310.pyc
+index 72eec64..24e489f 100644
+Binary files a/Envs/__pycache__/simple_landmarks.cpython-310.pyc and b/Envs/__pycache__/simple_landmarks.cpython-310.pyc differ
+diff --git a/Envs/treasure_hunt.py b/Envs/treasure_hunt.py
+index f22626e..deabffa 100644
+--- a/Envs/treasure_hunt.py
++++ b/Envs/treasure_hunt.py
+@@ -631,7 +631,7 @@ if __name__ == "__main__":
+               "max_prob": 0.95,}
+     env = TreasureHunt(config)
+     print(env.action_space.sample())
+-    for i in range(1000):
++    for i in range(2):
+         #print(i)
+         #actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+         #           "agent_1": torch.Tensor(env.action_space.sample()),}
+diff --git a/Utils/__pycache__/train_utils.cpython-310.pyc b/Utils/__pycache__/train_utils.cpython-310.pyc
+index 17d38d9..eeee37e 100644
+Binary files a/Utils/__pycache__/train_utils.cpython-310.pyc and b/Utils/__pycache__/train_utils.cpython-310.pyc differ
+diff --git a/__pycache__/agent.cpython-310.pyc b/__pycache__/agent.cpython-310.pyc
+index c5d7c01..3d70515 100644
+Binary files a/__pycache__/agent.cpython-310.pyc and b/__pycache__/agent.cpython-310.pyc differ
+diff --git a/__pycache__/policy.cpython-310.pyc b/__pycache__/policy.cpython-310.pyc
+index 8ae1e1c..4447def 100644
+Binary files a/__pycache__/policy.cpython-310.pyc and b/__pycache__/policy.cpython-310.pyc differ
+diff --git a/mp_train.py b/mp_train.py
+index 559d15d..a8a6d5b 100644
+--- a/mp_train.py
++++ b/mp_train.py
+@@ -406,7 +406,7 @@ if __name__ == "__main__":
+         global_step = 0
+         
+         num_updates = config["total_steps"] // config["batch_size"]
+-        update = 0
++        update = 1
+ 
+         #Start the workers
+         #ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
+@@ -483,7 +483,7 @@ if __name__ == "__main__":
+                                 stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                             stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
+ 
+-                        if update % (update_ratio-1) == 0: #and update != 0:
++                        if update % update_ratio == 0 and update != 0:
+                             total_completed = {}
+                             total_reward = {}
+                             total_stage_successes = {}

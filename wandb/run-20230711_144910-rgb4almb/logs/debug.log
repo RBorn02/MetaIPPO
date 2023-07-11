@@ -1,0 +1,29 @@
+2023-07-11 14:49:10,387 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Current SDK version is 0.15.3
+2023-07-11 14:49:10,387 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Configure stats pid to 39036
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Loading settings from /home/rbornema/.config/wandb/settings
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Loading settings from /home/rbornema/Documents/GitHub/MetaIPPO/wandb/settings
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Loading settings from environment variables: {}
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Applying setup settings: {'_disable_service': False}
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_setup.py:_flush():76] Inferring run settings from compute environment: {'program_relpath': 'mp_train.py', 'program': '/home/rbornema/Documents/GitHub/MetaIPPO/mp_train.py'}
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_init.py:_log_setup():507] Logging user logs to /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/logs/debug.log
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_init.py:_log_setup():508] Logging internal logs to /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/logs/debug-internal.log
+2023-07-11 14:49:10,388 INFO    MainThread:39036 [wandb_init.py:init():547] calling init triggers
+2023-07-11 14:49:10,389 INFO    MainThread:39036 [wandb_init.py:init():554] wandb.init called with sweep_config: {}
+config: {'env_config': {'env_name': 'CraftingEnv', 'num_envs': 16, 'num_agents': 2, 'num_landmarks': 4, 'timelimit': 50, 'coop_chance': 1.0, 'seed': 1, 'single_goal': True, 'single_reward': True, 'vocab_size': 3, 'message_length': 1, 'random_assign': True, 'min_prob': 0.025, 'max_prob': 0.95, 'playground_height': 300, 'playground_width': 300}, 'pretrained': None, 'total_steps': 250000000.0, 'rollout_steps': 6400, 'batch_size': 6400, 'seed': 1, 'anneal_lr': True, 'lr': 0.00025, 'gae': True, 'gae_lambda': 1.0, 'gamma': 0.99, 'num_minibatches': 4, 'update_epochs': 4, 'norm_adv': True, 'clip_coef': 0.1, 'clip_vloss': True, 'ent_coef': 0.001, 'vf_coef': 1.0, 'max_grad_norm': 0.5, 'target_kl': None, 'device': 'cpu', 'num_workers': 8, 'record_video_every': 10, 'debug': False, 'model_config': {'lstm_layers': 1, 'lstm_in_size': 64, 'lstm_hidden_size': 64, 'channel_1': 16, 'channel_2': 32, 'channel_3': 32, 'use_last_action_reward': True, 'contact': True, 'one_hot_message': False}}
+2023-07-11 14:49:10,389 INFO    MainThread:39036 [wandb_init.py:init():596] starting backend
+2023-07-11 14:49:10,389 INFO    MainThread:39036 [wandb_init.py:init():600] setting up manager
+2023-07-11 14:49:10,393 INFO    MainThread:39036 [backend.py:_multiprocessing_setup():106] multiprocessing start_methods=fork,spawn,forkserver, using: spawn
+2023-07-11 14:49:10,397 INFO    MainThread:39036 [wandb_init.py:init():606] backend started and connected
+2023-07-11 14:49:10,402 INFO    MainThread:39036 [wandb_init.py:init():700] updated telemetry
+2023-07-11 14:49:10,409 INFO    MainThread:39036 [wandb_init.py:init():737] communicating run to backend with 60.0 second timeout
+2023-07-11 14:49:11,160 INFO    MainThread:39036 [wandb_run.py:_on_init():2177] communicating current version
+2023-07-11 14:49:11,803 INFO    MainThread:39036 [wandb_run.py:_on_init():2186] got version response upgrade_message: "wandb version 0.15.5 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
+
+2023-07-11 14:49:11,804 INFO    MainThread:39036 [wandb_init.py:init():787] starting run threads in backend
+2023-07-11 14:49:18,631 INFO    MainThread:39036 [wandb_run.py:_console_start():2158] atexit reg
+2023-07-11 14:49:18,632 INFO    MainThread:39036 [wandb_run.py:_redirect():2013] redirect: SettingsConsole.WRAP_RAW
+2023-07-11 14:49:18,632 INFO    MainThread:39036 [wandb_run.py:_redirect():2078] Wrapping output streams.
+2023-07-11 14:49:18,632 INFO    MainThread:39036 [wandb_run.py:_redirect():2103] Redirects installed.
+2023-07-11 14:49:18,633 INFO    MainThread:39036 [wandb_init.py:init():829] run started, returning control to user process
+2023-07-11 14:49:18,633 INFO    MainThread:39036 [wandb_run.py:_tensorboard_callback():1433] tensorboard callback: runs/PPO_CraftingEnv_2_1.0_1689079748.9904592, True
+2023-07-11 14:50:58,723 WARNING MsgRouterThr:39036 [router.py:message_loop():77] message_loop has been closed

@@ -533,7 +533,6 @@ class CraftingEnv(MultiAgentEnv):
             rewards[agent.name] = agent_reward
 
             if self.stage_first_reward_dict[agent.name]["stage_{0}".format(self.stage)] and bool(reward):
-                print("Reward")
                 infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
             else:
                 infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
