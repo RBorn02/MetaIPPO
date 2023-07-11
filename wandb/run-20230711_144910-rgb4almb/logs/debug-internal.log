@@ -1,0 +1,318 @@
+2023-07-11 14:49:10,400 INFO    StreamThr :39123 [internal.py:wandb_internal():86] W&B internal server running at pid: 39123, started at: 2023-07-11 14:49:10.399370
+2023-07-11 14:49:10,405 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status
+2023-07-11 14:49:10,406 INFO    WriterThread:39123 [datastore.py:open_for_write():85] open: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/run-rgb4almb.wandb
+2023-07-11 14:49:10,407 DEBUG   SenderThread:39123 [sender.py:send():375] send: header
+2023-07-11 14:49:10,410 DEBUG   SenderThread:39123 [sender.py:send():375] send: run
+2023-07-11 14:49:11,163 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: check_version
+2023-07-11 14:49:11,166 INFO    SenderThread:39123 [dir_watcher.py:__init__():219] watching files in: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files
+2023-07-11 14:49:11,166 INFO    SenderThread:39123 [sender.py:_start_run_threads():1124] run started: rgb4almb with start time 1689079750.39748
+2023-07-11 14:49:11,166 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: summary_record
+2023-07-11 14:49:11,167 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:49:11,168 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: check_version
+2023-07-11 14:49:11,816 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: run_start
+2023-07-11 14:49:12,170 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json
+2023-07-11 14:49:13,423 DEBUG   HandlerThread:39123 [system_info.py:__init__():31] System info init
+2023-07-11 14:49:13,423 DEBUG   HandlerThread:39123 [system_info.py:__init__():46] System info init done
+2023-07-11 14:49:13,424 INFO    HandlerThread:39123 [system_monitor.py:start():181] Starting system monitor
+2023-07-11 14:49:13,424 INFO    SystemMonitor:39123 [system_monitor.py:_start():145] Starting system asset monitoring threads
+2023-07-11 14:49:13,424 INFO    HandlerThread:39123 [system_monitor.py:probe():201] Collecting system info
+2023-07-11 14:49:13,425 INFO    SystemMonitor:39123 [interfaces.py:start():190] Started cpu monitoring
+2023-07-11 14:49:13,426 INFO    SystemMonitor:39123 [interfaces.py:start():190] Started disk monitoring
+2023-07-11 14:49:13,426 INFO    SystemMonitor:39123 [interfaces.py:start():190] Started gpu monitoring
+2023-07-11 14:49:13,427 INFO    SystemMonitor:39123 [interfaces.py:start():190] Started memory monitoring
+2023-07-11 14:49:13,427 INFO    SystemMonitor:39123 [interfaces.py:start():190] Started network monitoring
+2023-07-11 14:49:13,435 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:13,456 DEBUG   HandlerThread:39123 [system_info.py:probe():195] Probing system
+2023-07-11 14:49:13,459 DEBUG   HandlerThread:39123 [system_info.py:_probe_git():180] Probing git
+2023-07-11 14:49:13,471 DEBUG   HandlerThread:39123 [system_info.py:_probe_git():188] Probing git done
+2023-07-11 14:49:13,471 DEBUG   HandlerThread:39123 [system_info.py:probe():240] Probing system done
+2023-07-11 14:49:13,471 DEBUG   HandlerThread:39123 [system_monitor.py:probe():210] {'os': 'Linux-5.15.0-76-generic-x86_64-with-glibc2.31', 'python': '3.10.11', 'heartbeatAt': '2023-07-11T12:49:13.456296', 'startedAt': '2023-07-11T12:49:10.384623', 'docker': None, 'cuda': None, 'args': ('--env_name', 'CraftingEnv', '--rollout_steps', '6400', '--time_limit', '50'), 'state': 'running', 'program': '/home/rbornema/Documents/GitHub/MetaIPPO/mp_train.py', 'codePath': 'mp_train.py', 'git': {'remote': 'https://github.com/RBorn02/MetaIPPO.git', 'commit': '5cce0d52112453bf7904313392f5dcc2bfdc32e2'}, 'email': 'r.bornemann97@gmail.com', 'root': '/home/rbornema/Documents/GitHub/MetaIPPO', 'host': 'epi-flowers-plantec', 'username': 'rbornema', 'executable': '/home/rbornema/anaconda3/envs/testtorch/bin/python3', 'cpu_count': 6, 'cpu_count_logical': 12, 'cpu_freq': {'current': 2.57725, 'min': 800.0, 'max': 5100.0}, 'cpu_freq_per_core': [{'current': 1.227, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}], 'disk': {'total': 91.10684585571289, 'used': 28.178691864013672}, 'gpu': 'Quadro T1000', 'gpu_count': 1, 'gpu_devices': [{'name': 'Quadro T1000', 'memory_total': 4294967296}], 'memory': {'total': 31.087554931640625}}
+2023-07-11 14:49:13,471 INFO    HandlerThread:39123 [system_monitor.py:probe():211] Finished collecting system info
+2023-07-11 14:49:13,472 INFO    HandlerThread:39123 [system_monitor.py:probe():214] Publishing system info
+2023-07-11 14:49:13,472 DEBUG   HandlerThread:39123 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-07-11 14:49:13,472 DEBUG   HandlerThread:39123 [system_info.py:_save_pip():67] Saving pip packages done
+2023-07-11 14:49:13,473 DEBUG   HandlerThread:39123 [system_info.py:_save_conda():74] Saving list of conda packages installed into the current environment
+2023-07-11 14:49:14,167 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/requirements.txt
+2023-07-11 14:49:14,167 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/conda-environment.yaml
+2023-07-11 14:49:15,437 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:17,439 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:18,591 DEBUG   HandlerThread:39123 [system_info.py:_save_conda():86] Saving conda packages done
+2023-07-11 14:49:18,591 DEBUG   HandlerThread:39123 [system_info.py:_save_code():89] Saving code
+2023-07-11 14:49:18,593 DEBUG   HandlerThread:39123 [system_info.py:_save_code():110] Saving code done
+2023-07-11 14:49:18,593 DEBUG   HandlerThread:39123 [system_info.py:_save_patches():127] Saving git patches
+2023-07-11 14:49:18,620 DEBUG   HandlerThread:39123 [system_info.py:_save_patches():169] Saving git patches done
+2023-07-11 14:49:18,621 INFO    HandlerThread:39123 [system_monitor.py:probe():216] Finished publishing system info
+2023-07-11 14:49:18,626 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:18,626 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: keepalive
+2023-07-11 14:49:18,626 DEBUG   SenderThread:39123 [sender.py:send():375] send: files
+2023-07-11 14:49:18,626 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-metadata.json with policy now
+2023-07-11 14:49:18,627 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file code/mp_train.py with policy now
+2023-07-11 14:49:18,627 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file diff.patch with policy now
+2023-07-11 14:49:18,627 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file upstream_diff_7c7f1bb25b030580b4d1bdae4571fee06e3ec3ba.patch with policy now
+2023-07-11 14:49:18,634 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-11 14:49:18,634 INFO    HandlerThread:39123 [handler.py:handle_tbrecord():747] handling tbrecord: tbrecord {
+  log_dir: "runs/PPO_CraftingEnv_2_1.0_1689079748.9904592"
+  save: true
+}
+control {
+  relay_id: "612018e6d7f649fd930d570c49f5e1ba"
+}
+_info {
+  stream_id: "rgb4almb"
+}
+
+2023-07-11 14:49:18,634 DEBUG   HandlerThread:39123 [config_util.py:dict_from_config_file():104] no default config file found in config-defaults.yaml
+2023-07-11 14:49:18,636 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: stop_status
+2023-07-11 14:49:19,169 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/conda-environment.yaml
+2023-07-11 14:49:19,169 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/diff.patch
+2023-07-11 14:49:19,169 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-metadata.json
+2023-07-11 14:49:19,169 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/code/mp_train.py
+2023-07-11 14:49:19,170 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/upstream_diff_7c7f1bb25b030580b4d1bdae4571fee06e3ec3ba.patch
+2023-07-11 14:49:19,170 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/code
+2023-07-11 14:49:19,454 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:19,668 DEBUG   SenderThread:39123 [sender.py:send():375] send: telemetry
+2023-07-11 14:49:19,668 DEBUG   SenderThread:39123 [sender.py:send():375] send: tbrecord
+2023-07-11 14:49:19,901 INFO    wandb-upload_1:39123 [upload_job.py:push():117] Skipped uploading /tmp/tmpag7eltq9wandb/fapu2hoy-code/mp_train.py
+2023-07-11 14:49:20,180 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:49:20,226 INFO    wandb-upload_0:39123 [upload_job.py:push():137] Uploaded file /tmp/tmpag7eltq9wandb/md8j53h8-wandb-metadata.json
+2023-07-11 14:49:20,273 INFO    wandb-upload_2:39123 [upload_job.py:push():137] Uploaded file /tmp/tmpag7eltq9wandb/1k01p8sb-diff.patch
+2023-07-11 14:49:20,785 INFO    wandb-upload_3:39123 [upload_job.py:push():137] Uploaded file /tmp/tmpag7eltq9wandb/lrmk02p1-upstream_diff_7c7f1bb25b030580b4d1bdae4571fee06e3ec3ba.patch
+2023-07-11 14:49:21,513 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:21,673 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:21,778 DEBUG   SenderThread:39123 [sender.py:send():375] send: files
+2023-07-11 14:49:21,779 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file events.out.tfevents.1689079758.epi-flowers-plantec.39036.0 with policy live
+2023-07-11 14:49:22,182 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:49:22,182 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/events.out.tfevents.1689079758.epi-flowers-plantec.39036.0
+2023-07-11 14:49:22,288 INFO    wandb-upload_1:39123 [upload_job.py:push():137] Uploaded file /tmp/tmpag7eltq9wandb/7cmd8ts3-events.out.tfevents.1689079758.epi-flowers-plantec.39036.0
+2023-07-11 14:49:23,517 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:25,519 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:26,780 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:27,522 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:29,525 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:31,527 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:31,781 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:33,530 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:33,632 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-11 14:49:33,632 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: stop_status
+2023-07-11 14:49:35,533 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:36,894 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:37,535 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:39,538 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:41,540 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:41,900 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:43,209 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/config.yaml
+2023-07-11 14:49:43,630 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:45,633 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:47,210 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:47,636 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:48,632 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-11 14:49:48,633 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: stop_status
+2023-07-11 14:49:49,638 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:51,641 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:52,826 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:53,644 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:55,646 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:57,649 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:49:57,826 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:49:59,652 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:01,655 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:02,827 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:03,632 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-11 14:50:03,633 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: stop_status
+2023-07-11 14:50:03,657 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:05,660 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:07,663 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:08,191 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:09,666 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:11,669 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:13,192 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:13,428 DEBUG   SystemMonitor:39123 [system_monitor.py:_start():159] Starting system metrics aggregation loop
+2023-07-11 14:50:13,429 DEBUG   SenderThread:39123 [sender.py:send():375] send: stats
+2023-07-11 14:50:13,747 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:15,750 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:17,752 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:18,433 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:18,632 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-11 14:50:18,633 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: stop_status
+2023-07-11 14:50:19,755 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:21,757 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:23,759 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:23,886 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:25,762 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:26,230 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:50:26,455 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: partial_history
+2023-07-11 14:50:26,457 DEBUG   SenderThread:39123 [sender.py:send():375] send: history
+2023-07-11 14:50:26,458 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: summary_record
+2023-07-11 14:50:26,459 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:50:27,230 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json
+2023-07-11 14:50:27,765 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:28,231 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:50:28,669 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: partial_history
+2023-07-11 14:50:28,672 DEBUG   SenderThread:39123 [sender.py:send():375] send: history
+2023-07-11 14:50:28,672 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: summary_record
+2023-07-11 14:50:28,674 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: partial_history
+2023-07-11 14:50:28,677 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: partial_history
+2023-07-11 14:50:28,681 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:50:28,681 DEBUG   SenderThread:39123 [sender.py:send():375] send: history
+2023-07-11 14:50:28,682 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: summary_record
+2023-07-11 14:50:28,682 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:50:28,682 DEBUG   SenderThread:39123 [sender.py:send():375] send: history
+2023-07-11 14:50:28,682 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: summary_record
+2023-07-11 14:50:28,683 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:50:29,231 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json
+2023-07-11 14:50:29,684 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:29,768 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:30,232 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:50:31,771 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:33,633 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: stop_status
+2023-07-11 14:50:33,633 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: stop_status
+2023-07-11 14:50:33,774 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:35,073 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:35,777 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:37,780 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:39,783 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:40,073 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:41,786 ERROR   gpu       :39123 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-07-11 14:50:43,431 DEBUG   SenderThread:39123 [sender.py:send():375] send: stats
+2023-07-11 14:50:43,561 DEBUG   SenderThread:39123 [sender.py:send():375] send: exit
+2023-07-11 14:50:43,561 INFO    SenderThread:39123 [sender.py:send_exit():598] handling exit code: 255
+2023-07-11 14:50:43,562 INFO    SenderThread:39123 [sender.py:send_exit():600] handling runtime: 91
+2023-07-11 14:50:43,563 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:50:43,563 INFO    SenderThread:39123 [sender.py:send_exit():606] send defer
+2023-07-11 14:50:43,564 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:43,564 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 0
+2023-07-11 14:50:43,564 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:43,565 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 0
+2023-07-11 14:50:43,565 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 1
+2023-07-11 14:50:43,565 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:43,565 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 1
+2023-07-11 14:50:43,566 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:43,566 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 1
+2023-07-11 14:50:43,566 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 2
+2023-07-11 14:50:43,567 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:43,567 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 2
+2023-07-11 14:50:43,567 INFO    HandlerThread:39123 [system_monitor.py:finish():190] Stopping system monitor
+2023-07-11 14:50:43,567 DEBUG   SystemMonitor:39123 [system_monitor.py:_start():166] Finished system metrics aggregation loop
+2023-07-11 14:50:43,568 DEBUG   SystemMonitor:39123 [system_monitor.py:_start():170] Publishing last batch of metrics
+2023-07-11 14:50:43,572 INFO    HandlerThread:39123 [interfaces.py:finish():202] Joined cpu monitor
+2023-07-11 14:50:43,573 INFO    HandlerThread:39123 [interfaces.py:finish():202] Joined disk monitor
+2023-07-11 14:50:43,738 INFO    HandlerThread:39123 [interfaces.py:finish():202] Joined gpu monitor
+2023-07-11 14:50:43,739 INFO    HandlerThread:39123 [interfaces.py:finish():202] Joined memory monitor
+2023-07-11 14:50:43,740 INFO    HandlerThread:39123 [interfaces.py:finish():202] Joined network monitor
+2023-07-11 14:50:43,741 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:43,742 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 2
+2023-07-11 14:50:43,742 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 3
+2023-07-11 14:50:43,742 DEBUG   SenderThread:39123 [sender.py:send():375] send: stats
+2023-07-11 14:50:43,743 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:43,743 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 3
+2023-07-11 14:50:43,744 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:43,744 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 3
+2023-07-11 14:50:43,744 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 4
+2023-07-11 14:50:43,745 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:43,745 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 4
+2023-07-11 14:50:44,240 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json
+2023-07-11 14:50:46,242 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:50:49,648 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: poll_exit
+2023-07-11 14:50:49,648 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:49,649 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: keepalive
+2023-07-11 14:50:49,649 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:49,649 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 4
+2023-07-11 14:50:49,649 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 5
+2023-07-11 14:50:49,649 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: poll_exit
+2023-07-11 14:50:49,649 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:49,649 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 5
+2023-07-11 14:50:49,650 DEBUG   SenderThread:39123 [sender.py:send():375] send: summary
+2023-07-11 14:50:49,651 INFO    SenderThread:39123 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-07-11 14:50:49,651 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:49,651 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 5
+2023-07-11 14:50:49,651 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 6
+2023-07-11 14:50:49,651 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:49,651 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 6
+2023-07-11 14:50:49,651 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:49,651 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 6
+2023-07-11 14:50:49,651 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 7
+2023-07-11 14:50:49,652 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:49,652 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:49,652 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 7
+2023-07-11 14:50:49,652 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:49,652 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 7
+2023-07-11 14:50:50,244 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json
+2023-07-11 14:50:51,551 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 8
+2023-07-11 14:50:51,551 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:51,551 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 8
+2023-07-11 14:50:51,552 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:51,552 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 8
+2023-07-11 14:50:51,555 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 9
+2023-07-11 14:50:51,556 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:51,556 DEBUG   SenderThread:39123 [sender.py:send():375] send: artifact
+2023-07-11 14:50:51,556 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 9
+2023-07-11 14:50:52,246 INFO    Thread-12 :39123 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:50:53,594 INFO    wandb-upload_3:39123 [upload_job.py:push():92] Skipped uploading /home/rbornema/.local/share/wandb/artifacts/staging/tmp0pibrzr2
+2023-07-11 14:50:53,907 INFO    wandb-upload_2:39123 [upload_job.py:push():95] Uploaded file /home/rbornema/.local/share/wandb/artifacts/staging/tmp9mdrif68
+2023-07-11 14:50:53,928 INFO    wandb-upload_0:39123 [upload_job.py:push():95] Uploaded file /home/rbornema/.local/share/wandb/artifacts/staging/tmp5axo667l
+2023-07-11 14:50:54,565 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: keepalive
+2023-07-11 14:50:55,231 INFO    SenderThread:39123 [sender.py:send_artifact():1474] sent artifact job-https___github.com_RBorn02_MetaIPPO.git_mp_train.py - {'id': 'QXJ0aWZhY3Q6NTEwMDAzMzEz', 'digest': '6198d305a1ac48c34b0bd8afd9ce93e3', 'state': 'PENDING', 'aliases': [], 'artifactSequence': {'id': 'QXJ0aWZhY3RDb2xsZWN0aW9uOjcyOTEyNjYz', 'latestArtifact': {'id': 'QXJ0aWZhY3Q6NTEwMDAxNzgw', 'versionIndex': 176}}, 'version': 'latest'}
+2023-07-11 14:50:55,231 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:55,231 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 9
+2023-07-11 14:50:55,231 INFO    SenderThread:39123 [dir_watcher.py:finish():365] shutting down directory watcher
+2023-07-11 14:50:55,247 INFO    SenderThread:39123 [dir_watcher.py:finish():395] scan: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files
+2023-07-11 14:50:55,247 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json wandb-summary.json
+2023-07-11 14:50:55,247 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/config.yaml config.yaml
+2023-07-11 14:50:55,248 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/diff.patch diff.patch
+2023-07-11 14:50:55,252 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/upstream_diff_7c7f1bb25b030580b4d1bdae4571fee06e3ec3ba.patch upstream_diff_7c7f1bb25b030580b4d1bdae4571fee06e3ec3ba.patch
+2023-07-11 14:50:55,252 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log output.log
+2023-07-11 14:50:55,253 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-metadata.json wandb-metadata.json
+2023-07-11 14:50:55,253 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/events.out.tfevents.1689079758.epi-flowers-plantec.39036.0 events.out.tfevents.1689079758.epi-flowers-plantec.39036.0
+2023-07-11 14:50:55,253 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/requirements.txt requirements.txt
+2023-07-11 14:50:55,253 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/conda-environment.yaml conda-environment.yaml
+2023-07-11 14:50:55,259 INFO    SenderThread:39123 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/code/mp_train.py code/mp_train.py
+2023-07-11 14:50:55,259 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 10
+2023-07-11 14:50:55,259 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:55,260 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 10
+2023-07-11 14:50:55,264 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:55,264 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 10
+2023-07-11 14:50:55,264 INFO    SenderThread:39123 [file_pusher.py:finish():167] shutting down file pusher
+2023-07-11 14:50:55,702 INFO    wandb-upload_2:39123 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/config.yaml
+2023-07-11 14:50:55,711 INFO    wandb-upload_0:39123 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/requirements.txt
+2023-07-11 14:50:55,716 INFO    wandb-upload_1:39123 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/wandb-summary.json
+2023-07-11 14:50:55,874 INFO    wandb-upload_4:39123 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/conda-environment.yaml
+2023-07-11 14:50:55,993 INFO    wandb-upload_3:39123 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/files/output.log
+2023-07-11 14:50:56,194 INFO    Thread-11 (_thread_body):39123 [sender.py:transition_state():626] send defer: 11
+2023-07-11 14:50:56,195 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:56,195 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 11
+2023-07-11 14:50:56,196 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:56,196 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 11
+2023-07-11 14:50:56,196 INFO    SenderThread:39123 [file_pusher.py:join():172] waiting for file pusher
+2023-07-11 14:50:56,196 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 12
+2023-07-11 14:50:56,197 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:56,197 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 12
+2023-07-11 14:50:56,198 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:56,198 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 12
+2023-07-11 14:50:57,382 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 13
+2023-07-11 14:50:57,382 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:57,383 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 13
+2023-07-11 14:50:57,383 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: status_report
+2023-07-11 14:50:57,384 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:57,384 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 13
+2023-07-11 14:50:57,384 INFO    SenderThread:39123 [sender.py:transition_state():626] send defer: 14
+2023-07-11 14:50:57,385 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: defer
+2023-07-11 14:50:57,385 INFO    HandlerThread:39123 [handler.py:handle_request_defer():170] handle defer: 14
+2023-07-11 14:50:57,386 DEBUG   SenderThread:39123 [sender.py:send():375] send: final
+2023-07-11 14:50:57,386 DEBUG   SenderThread:39123 [sender.py:send():375] send: footer
+2023-07-11 14:50:57,387 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: defer
+2023-07-11 14:50:57,387 INFO    SenderThread:39123 [sender.py:send_request_defer():622] handle sender defer: 14
+2023-07-11 14:50:57,388 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: poll_exit
+2023-07-11 14:50:57,389 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: server_info
+2023-07-11 14:50:57,390 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: get_summary
+2023-07-11 14:50:57,391 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: poll_exit
+2023-07-11 14:50:57,392 DEBUG   SenderThread:39123 [sender.py:send_request():402] send_request: server_info
+2023-07-11 14:50:57,396 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: sampled_history
+2023-07-11 14:50:57,587 INFO    MainThread:39123 [wandb_run.py:_footer_history_summary_info():3469] rendering history
+2023-07-11 14:50:57,589 INFO    MainThread:39123 [wandb_run.py:_footer_history_summary_info():3501] rendering summary
+2023-07-11 14:50:57,590 INFO    MainThread:39123 [wandb_run.py:_footer_sync_info():3428] logging synced files
+2023-07-11 14:50:57,591 DEBUG   HandlerThread:39123 [handler.py:handle_request():144] handle_request: shutdown
+2023-07-11 14:50:57,591 INFO    HandlerThread:39123 [handler.py:finish():842] shutting down handler
+2023-07-11 14:50:58,392 INFO    WriterThread:39123 [datastore.py:close():298] close: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230711_144910-rgb4almb/run-rgb4almb.wandb
+2023-07-11 14:50:58,587 INFO    SenderThread:39123 [sender.py:finish():1550] shutting down sender
+2023-07-11 14:50:58,587 INFO    SenderThread:39123 [file_pusher.py:finish():167] shutting down file pusher
+2023-07-11 14:50:58,587 INFO    SenderThread:39123 [file_pusher.py:join():172] waiting for file pusher

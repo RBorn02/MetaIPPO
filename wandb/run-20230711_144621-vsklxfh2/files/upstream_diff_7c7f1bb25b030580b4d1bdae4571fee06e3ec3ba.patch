@@ -1,0 +1,322 @@
+diff --git a/Envs/__pycache__/environment_handler.cpython-310.pyc b/Envs/__pycache__/environment_handler.cpython-310.pyc
+index a389423..b89f111 100644
+Binary files a/Envs/__pycache__/environment_handler.cpython-310.pyc and b/Envs/__pycache__/environment_handler.cpython-310.pyc differ
+diff --git a/Envs/__pycache__/simple_landmarks.cpython-310.pyc b/Envs/__pycache__/simple_landmarks.cpython-310.pyc
+index 72eec64..24e489f 100644
+Binary files a/Envs/__pycache__/simple_landmarks.cpython-310.pyc and b/Envs/__pycache__/simple_landmarks.cpython-310.pyc differ
+diff --git a/Envs/crafting_env.py b/Envs/crafting_env.py
+index 7529aac..d34e470 100644
+--- a/Envs/crafting_env.py
++++ b/Envs/crafting_env.py
+@@ -533,7 +533,6 @@ class CraftingEnv(MultiAgentEnv):
+             rewards[agent.name] = agent_reward
+ 
+             if self.stage_first_reward_dict[agent.name]["stage_{0}".format(self.stage)] and bool(reward):
+-                print("Reward")
+                 infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
+             else:
+                 infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
+diff --git a/Envs/treasure_hunt.py b/Envs/treasure_hunt.py
+index f22626e..deabffa 100644
+--- a/Envs/treasure_hunt.py
++++ b/Envs/treasure_hunt.py
+@@ -631,7 +631,7 @@ if __name__ == "__main__":
+               "max_prob": 0.95,}
+     env = TreasureHunt(config)
+     print(env.action_space.sample())
+-    for i in range(1000):
++    for i in range(2):
+         #print(i)
+         #actions = {"agent_0": torch.Tensor(env.action_space.sample()),
+         #           "agent_1": torch.Tensor(env.action_space.sample()),}
+diff --git a/Utils/__pycache__/train_utils.cpython-310.pyc b/Utils/__pycache__/train_utils.cpython-310.pyc
+index 17d38d9..eeee37e 100644
+Binary files a/Utils/__pycache__/train_utils.cpython-310.pyc and b/Utils/__pycache__/train_utils.cpython-310.pyc differ
+diff --git a/Utils/train_utils.py b/Utils/train_utils.py
+index 3ae0e81..cf94844 100644
+--- a/Utils/train_utils.py
++++ b/Utils/train_utils.py
+@@ -298,40 +298,47 @@ def handle_dones(dones):
+ 
+ 
+ 
+-def print_info(storage, next_dones, epoch, average_reward_dict, best_average_reward_dict, 
++def print_info(storage, total_completed, rewards, stage_success_dict, stages_sampled, epoch, average_reward_dict, best_average_reward_dict, 
+                success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success,
+-               stage_success_info, stages_average_success_rate, config):
++               stages_average_success_rate, config):
+     """Print info for each episode"""
+     end_of_episode_info = {}
+     print("Epoch: {0}".format(epoch))
+     id = 0
+     for a in storage.keys():
+-        completed = torch.sum(torch.cat((storage[a]["dones"][1:].cpu(), next_dones[a]), dim=0))
+-        reward = torch.sum(storage[a]["rewards"].cpu())
++        reward = rewards[a]
++        completed = total_completed[a]
+         episodic_reward = reward / completed
+         successes = success[a]
+         success_rate = successes / completed
+         average_reward_dict[a].append(episodic_reward)
+         success_rate_dict[a].append(success_rate)
+-        if epoch > 25:
+-           average_reward = sum(average_reward_dict[a][-25:]) / 25
+-           average_success_rate = sum(success_rate_dict[a][-25:]) / 25
+-           
+-           if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
++
++        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+             for s in range(1, 4):
+-                    stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+-                    stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
++                    stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
++                    stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
+                     stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
+ 
++        if epoch > 25:
++            average_reward = sum(average_reward_dict[a][-25:]) / 25
++            average_success_rate = sum(success_rate_dict[a][-25:]) / 25
++
++            rolling_stage_success_rates = {}
++            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
++                for s in range(1, 4):
++                    rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)][-25:]) / 25
++           
++
+         else:
+             average_reward = sum(average_reward_dict[a]) / len(average_reward_dict[a])
+             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
+ 
++            rolling_stage_success_rates = {}
+             if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                 for s in range(1, 4):
+-                    stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+-                    stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+-                    stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
++                    rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)]) / len(stages_average_success_rate[a]["stage_{0}".format(s)])
++                   
+ 
+         if average_reward > best_average_reward_dict[a]:
+             best_average_reward_dict[a] = average_reward
+@@ -341,8 +348,6 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
+             
+         end_of_episode_info["agent_{0}".format(id)] = {"completed": completed,
+                                                      "reward": reward,
+-                                                     "average_reward": episodic_reward,
+-                                                     "average_success_rate": average_reward,
+                                                      "successes": successes,
+                                                      "success_rate": success_rate,
+                                                      "rolling_average_reward": average_reward,
+@@ -363,17 +368,17 @@ def print_info(storage, next_dones, epoch, average_reward_dict, best_average_rew
+         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "MultiAgentLandmarks"]:
+             for g in range(achieved_goal[a].shape[0]):
+                 print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
++
+         elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+-            print(stage_success_info)
+             for s in range(1, 4):
+-                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+-                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
++                stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
++                stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
+                 stage_success_rate = stage_successes / (stage_samples + 1e-8)
+                 
+                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_successes".format(s)] = stage_successes
+                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_samples".format(s)] = stage_samples
+                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_success_rate".format(s)] = stage_success_rate
+-                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_rolling_success_rate".format(s)] = stages_average_success_rate[a]["stage_{0}".format(s)][-1]
++                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_rolling_success_rate".format(s)] = rolling_stage_success_rates["stage_{0}".format(s)]
+ 
+                 print("Stage {0}: {1} Successes; {2} Samples; {3} Success Rate; {4} Rolling Average Success Rate".format(s, 
+                         stage_successes, stage_samples, stage_success_rate, stages_average_success_rate[a]["stage_{0}".format(s)][-1]))
+diff --git a/__pycache__/agent.cpython-310.pyc b/__pycache__/agent.cpython-310.pyc
+index c5d7c01..3d70515 100644
+Binary files a/__pycache__/agent.cpython-310.pyc and b/__pycache__/agent.cpython-310.pyc differ
+diff --git a/__pycache__/policy.cpython-310.pyc b/__pycache__/policy.cpython-310.pyc
+index 8ae1e1c..4447def 100644
+Binary files a/__pycache__/policy.cpython-310.pyc and b/__pycache__/policy.cpython-310.pyc differ
+diff --git a/mp_train.py b/mp_train.py
+index e6c3c7d..559d15d 100644
+--- a/mp_train.py
++++ b/mp_train.py
+@@ -377,16 +377,29 @@ if __name__ == "__main__":
+                 os.mkdir(runs_path)
+             run_path = os.path.join(runs_path, run_name)
+ 
+-        #Build storage
+-        training_info = {}
+-        average_reward = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
+-        best_average_reward = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
+-        average_success_rate = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
+-        best_average_success_rate = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
++        #Build storage for tracking training metrics
+         prev_best = 0.0
+-
+-        stages_rolling_success_rate = {"agent_{0}".format(a): {"stage_{0}".format(s): [] for s in range(1, 4)} 
+-                                       for a in range(config["env_config"]["num_agents"])}
++        training_info = {}
++        completed_episodes = {}
++        rewards = {}
++        average_reward = {}
++        best_average_reward = {}
++        average_success_rate = {}
++        best_average_success_rate = {}
++        stages_successes = {}
++        stages_sampled = {}
++        stages_rolling_success_rate = {}
++     
++        for a in range(config["env_config"]["num_agents"]):
++            completed_episodes["agent_{0}".format(a)] = []
++            rewards["agent_{0}".format(a)] = []
++            average_reward["agent_{0}".format(a)] = []
++            best_average_reward["agent_{0}".format(a)] = 0.0
++            average_success_rate["agent_{0}".format(a)] = []
++            best_average_success_rate["agent_{0}".format(a)] = 0.0
++            stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
++            stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
++            stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
+ 
+ 
+         #Start the game
+@@ -454,66 +467,87 @@ if __name__ == "__main__":
+                                 "agent_{0}_clip_fracs".format(a): clip_fracs})
+                         
+                     print("Time to update policy: {0}".format(time.time() - start))
+-
+-                    #TODO: Add all the tracking and printing
+-                    training_info[update] = print_info(storage, next_dones, update, average_reward, best_average_reward,
+-                                                        average_success_rate, best_average_success_rate, success_rate,
+-                                                        goal_line, goal_line_success, stage_success_info, stages_rolling_success_rate, config)
+                     
+-                    for a in range(config["env_config"]["num_agents"]):
+-                        agent_info = training_info[update]["agent_{0}".format(a)]
+-                        if not config["debug"]:
+-                            log_dict = {"agent_{0}_average_reward".format(a): agent_info["average_reward"],
+-                                "agent_{0}_average_success_rate".format(a): agent_info["average_success_rate"],
+-                                    "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
+-                                    "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
+-                                    "agent_{0}_completed".format(a): agent_info["completed"],
+-                                    "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
+-                                    "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
+-                                    "agent_{0}_successes".format(a): agent_info["successes"],
+-                                    "agent_{0}_rewards".format(a): agent_info["reward"]}
+-                            
+-                            #Log info for the different task stages in Crafting Env
+-                            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+-                                for s in range(1, 4):
+-                                    log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
+-                                    log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
+-                                    log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
+-                                    log_dict["agent_{0}_stage_{1}_rolling_success_rate".format(a, s)] = agent_info["stage_{0}_rolling_success_rate".format(s)]
+-
+-                            wandb.log(log_dict)
+ 
+                     #Save the models for the agents if the sum of the average rewards is greater than the best average reward
+                     if not config["debug"]:
+-                        if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
+-                            prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
++                        update_ratio = ((config["env_config"]["timelimit"] * config["env_config"]["num_envs"] * config["num_workers"]) // config["rollout_steps"])
++                        for a in range(config["env_config"]["num_agents"]):
++                            completed_episodes["agent_{0}".format(a)].append(torch.sum(torch.cat((storage["agent_{0}".format(a)]["dones"][1:].cpu(),
++                                                                                                   next_dones["agent_{0}".format(a)]), dim=0)))
++                            rewards["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
++                            
++                            for s in range(1, 4):
++                                stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
++                                                            stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
++                                stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
++                                                            stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
++
++                        if update % (update_ratio-1) == 0: #and update != 0:
++                            total_completed = {}
++                            total_reward = {}
++                            total_stage_successes = {}
++
+                             for a in range(config["env_config"]["num_agents"]):
+-                                save_path = os.path.join(run_path, "models".format(prev_best, update, a))
+-                                if not os.path.exists(save_path):
+-                                    os.makedirs(save_path)
+-                                if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
+-                                    os.remove(save_path + "/agent_{0}_model.pt".format(a))
+-                                torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
+-                                            "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
+-                                            save_path + "/agent_{0}_model.pt".format(a))
+-                            print("Saved models for agents with average reward {0}".format(prev_best)) 
+-                                                                                                            
+-
+-                    #Record a video every n updates
+-                    if not config["debug"]:
+-                        if update % config["record_video_every"] == 0:
+-                            video_path = os.path.join(run_path, "Videos/")
++                                total_completed["agent_{0}".format(a)] = sum(completed_episodes["agent_{0}".format(a)][-update_ratio:])
++                                total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
++                                total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
++                                                                                for s in range(1, 4)}
++
++                            training_info[update] = print_info(storage, total_completed, total_reward, total_stage_successes,
++                                                                stages_sampled, update, average_reward, best_average_reward,
++                                                                average_success_rate, best_average_success_rate, success_rate,
++                                                                goal_line, goal_line_success, stages_rolling_success_rate, config)
+                             
+-                            video_config = {}
+-                            video_config["env_config"] = config["env_config"].copy()
+-                            video_config["env_config"]["num_envs"] = 1
+-                            video_config["model_config"] = config["model_config"].copy()
+-                            video_env = EnvironmentHandler(video_config)
+-
+-                            if not os.path.exists(video_path):
+-                                os.makedirs(video_path)
+-                            record_video(video_config, video_env, policy_dict, 4, video_path, update)
+-                            print("Recorded video for update {0}".format(update))                                                                 
++
++                            for a in range(config["env_config"]["num_agents"]):
++                                agent_info = training_info[update]["agent_{0}".format(a)]
++                                log_dict = {
++                                        "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
++                                        "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
++                                        "agent_{0}_completed".format(a): agent_info["completed"],
++                                        "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
++                                        "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
++                                        "agent_{0}_successes".format(a): agent_info["successes"],
++                                        "agent_{0}_rewards".format(a): agent_info["reward"]}
++                                
++                                #Log info for the different task stages in Crafting Env
++                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
++                                    for s in range(1, 4):
++                                        log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
++                                        log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
++                                        log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
++                                        log_dict["agent_{0}_stage_{1}_rolling_success_rate".format(a, s)] = agent_info["stage_{0}_rolling_success_rate".format(s)]
++
++                                wandb.log(log_dict)
++
++                            if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
++                                prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
++                                for a in range(config["env_config"]["num_agents"]):
++                                    save_path = os.path.join(run_path, "models".format(prev_best, update, a))
++                                    if not os.path.exists(save_path):
++                                        os.makedirs(save_path)
++                                    if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
++                                        os.remove(save_path + "/agent_{0}_model.pt".format(a))
++                                    torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
++                                                "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
++                                                save_path + "/agent_{0}_model.pt".format(a))
++                                print("Saved models for agents with average reward {0}".format(prev_best)) 
++                                                                                                                
++                            #Record a video every n updates
++                            if (update * update_ratio) % config["record_video_every"] == 0:
++                                video_path = os.path.join(run_path, "Videos/")
++                                
++                                video_config = {}
++                                video_config["env_config"] = config["env_config"].copy()
++                                video_config["env_config"]["num_envs"] = 1
++                                video_config["model_config"] = config["model_config"].copy()
++                                video_env = EnvironmentHandler(video_config)
++
++                                if not os.path.exists(video_path):
++                                    os.makedirs(video_path)
++                                record_video(video_config, video_env, policy_dict, 4, video_path, update)
++                                print("Recorded video for update {0}".format(update))                                                                 
+                     
+ 
+                     #Restart the workers
