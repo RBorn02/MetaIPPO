@@ -406,7 +406,7 @@ if __name__ == "__main__":
         global_step = 0
         
         num_updates = config["total_steps"] // config["batch_size"]
-        update = 0
+        update = 1
 
         #Start the workers
         #ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
@@ -483,7 +483,7 @@ if __name__ == "__main__":
                                 stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                                             stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
 
-                        if update % (update_ratio-1) == 0: #and update != 0:
+                        if update % update_ratio == 0:
                             total_completed = {}
                             total_reward = {}
                             total_stage_successes = {}
