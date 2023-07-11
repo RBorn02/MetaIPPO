@@ -298,47 +298,40 @@ def handle_dones(dones):
 
 
 
-def print_info(storage, total_completed, rewards, stage_success_dict, stages_sampled, epoch, average_reward_dict, best_average_reward_dict, 
+def print_info(storage, next_dones, epoch, average_reward_dict, best_average_reward_dict, 
                success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success,
-               stages_average_success_rate, config):
+               stage_success_info, stages_average_success_rate, config):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
     id = 0
     for a in storage.keys():
-        reward = rewards[a]
-        completed = total_completed[a]
+        completed = torch.sum(torch.cat((storage[a]["dones"][1:].cpu(), next_dones[a]), dim=0))
+        reward = torch.sum(storage[a]["rewards"].cpu())
         episodic_reward = reward / completed
         successes = success[a]
         success_rate = successes / completed
         average_reward_dict[a].append(episodic_reward)
         success_rate_dict[a].append(success_rate)
-
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
-            for s in range(1, 4):
-                    stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
-                    stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
-                    stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
-
         if epoch > 25:
-            average_reward = sum(average_reward_dict[a][-25:]) / 25
-            average_success_rate = sum(success_rate_dict[a][-25:]) / 25
-
-            rolling_stage_success_rates = {}
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
-                for s in range(1, 4):
-                    rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)][-25:]) / 25
+           average_reward = sum(average_reward_dict[a][-25:]) / 25
+           average_success_rate = sum(success_rate_dict[a][-25:]) / 25
            
+           if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            for s in range(1, 4):
+                    stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                    stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                    stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
 
         else:
             average_reward = sum(average_reward_dict[a]) / len(average_reward_dict[a])
             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
 
-            rolling_stage_success_rates = {}
             if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
                 for s in range(1, 4):
-                    rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)]) / len(stages_average_success_rate[a]["stage_{0}".format(s)])
-                   
+                    stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                    stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
+                    stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
 
         if average_reward > best_average_reward_dict[a]:
             best_average_reward_dict[a] = average_reward
@@ -348,6 +341,8 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             
         end_of_episode_info["agent_{0}".format(id)] = {"completed": completed,
                                                      "reward": reward,
+                                                     "average_reward": episodic_reward,
+                                                     "average_success_rate": average_reward,
                                                      "successes": successes,
                                                      "success_rate": success_rate,
                                                      "rolling_average_reward": average_reward,
@@ -368,17 +363,17 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "MultiAgentLandmarks"]:
             for g in range(achieved_goal[a].shape[0]):
                 print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
-
         elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            print(stage_success_info)
             for s in range(1, 4):
-                stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
-                stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
+                stage_successes = stage_success_info[a]["stage_{0}".format(s)][1]
+                stage_samples = stage_success_info[a]["stage_{0}".format(s)][0]
                 stage_success_rate = stage_successes / (stage_samples + 1e-8)
                 
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_successes".format(s)] = stage_successes
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_samples".format(s)] = stage_samples
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_success_rate".format(s)] = stage_success_rate
-                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_rolling_success_rate".format(s)] = rolling_stage_success_rates["stage_{0}".format(s)]
+                end_of_episode_info["agent_{0}".format(id)]["stage_{0}_rolling_success_rate".format(s)] = stages_average_success_rate[a]["stage_{0}".format(s)][-1]
 
                 print("Stage {0}: {1} Successes; {2} Samples; {3} Success Rate; {4} Rolling Average Success Rate".format(s, 
                         stage_successes, stage_samples, stage_success_rate, stages_average_success_rate[a]["stage_{0}".format(s)][-1]))
