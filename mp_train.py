@@ -377,16 +377,29 @@ if __name__ == "__main__":
                 os.mkdir(runs_path)
             run_path = os.path.join(runs_path, run_name)
 
-        #Build storage
-        training_info = {}
-        average_reward = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
-        best_average_reward = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
-        average_success_rate = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
-        best_average_success_rate = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
+        #Build storage for tracking training metrics
         prev_best = 0.0
-
-        stages_rolling_success_rate = {"agent_{0}".format(a): {"stage_{0}".format(s): [] for s in range(1, 4)} 
-                                       for a in range(config["env_config"]["num_agents"])}
+        training_info = {}
+        completed_episodes = {}
+        rewards = {}
+        average_reward = {}
+        best_average_reward = {}
+        average_success_rate = {}
+        best_average_success_rate = {}
+        stages_successes = {}
+        stages_sampled = {}
+        stages_rolling_success_rate = {}
+     
+        for a in range(config["env_config"]["num_agents"]):
+            completed_episodes["agent_{0}".format(a)] = []
+            rewards["agent_{0}".format(a)] = []
+            average_reward["agent_{0}".format(a)] = []
+            best_average_reward["agent_{0}".format(a)] = 0.0
+            average_success_rate["agent_{0}".format(a)] = []
+            best_average_success_rate["agent_{0}".format(a)] = 0.0
+            stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
+            stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
+            stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
 
 
         #Start the game
@@ -454,66 +467,87 @@ if __name__ == "__main__":
                                 "agent_{0}_clip_fracs".format(a): clip_fracs})
                         
                     print("Time to update policy: {0}".format(time.time() - start))
-
-                    #TODO: Add all the tracking and printing
-                    training_info[update] = print_info(storage, next_dones, update, average_reward, best_average_reward,
-                                                        average_success_rate, best_average_success_rate, success_rate,
-                                                        goal_line, goal_line_success, stage_success_info, stages_rolling_success_rate, config)
                     
-                    for a in range(config["env_config"]["num_agents"]):
-                        agent_info = training_info[update]["agent_{0}".format(a)]
-                        if not config["debug"]:
-                            log_dict = {"agent_{0}_average_reward".format(a): agent_info["average_reward"],
-                                "agent_{0}_average_success_rate".format(a): agent_info["average_success_rate"],
-                                    "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
-                                    "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
-                                    "agent_{0}_completed".format(a): agent_info["completed"],
-                                    "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
-                                    "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
-                                    "agent_{0}_successes".format(a): agent_info["successes"],
-                                    "agent_{0}_rewards".format(a): agent_info["reward"]}
-                            
-                            #Log info for the different task stages in Crafting Env
-                            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
-                                for s in range(1, 4):
-                                    log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
-                                    log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
-                                    log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
-                                    log_dict["agent_{0}_stage_{1}_rolling_success_rate".format(a, s)] = agent_info["stage_{0}_rolling_success_rate".format(s)]
-
-                            wandb.log(log_dict)
 
                     #Save the models for the agents if the sum of the average rewards is greater than the best average reward
                     if not config["debug"]:
-                        if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
-                            prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
-                            for a in range(config["env_config"]["num_agents"]):
-                                save_path = os.path.join(run_path, "models".format(prev_best, update, a))
-                                if not os.path.exists(save_path):
-                                    os.makedirs(save_path)
-                                if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
-                                    os.remove(save_path + "/agent_{0}_model.pt".format(a))
-                                torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
-                                            "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
-                                            save_path + "/agent_{0}_model.pt".format(a))
-                            print("Saved models for agents with average reward {0}".format(prev_best)) 
-                                                                                                            
-
-                    #Record a video every n updates
-                    if not config["debug"]:
-                        if update % config["record_video_every"] == 0:
-                            video_path = os.path.join(run_path, "Videos/")
+                        update_ratio = ((config["env_config"]["timelimit"] * config["env_config"]["num_envs"] * config["num_workers"]) // config["rollout_steps"])
+                        for a in range(config["env_config"]["num_agents"]):
+                            completed_episodes["agent_{0}".format(a)].append(torch.sum(torch.cat((storage["agent_{0}".format(a)]["dones"][1:].cpu(),
+                                                                                                   next_dones["agent_{0}".format(a)]), dim=0)))
+                            rewards["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
                             
-                            video_config = {}
-                            video_config["env_config"] = config["env_config"].copy()
-                            video_config["env_config"]["num_envs"] = 1
-                            video_config["model_config"] = config["model_config"].copy()
-                            video_env = EnvironmentHandler(video_config)
+                            for s in range(1, 4):
+                                stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                            stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
+                                stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                            stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
 
-                            if not os.path.exists(video_path):
-                                os.makedirs(video_path)
-                            record_video(video_config, video_env, policy_dict, 4, video_path, update)
-                            print("Recorded video for update {0}".format(update))                                                                 
+                        if update % (update_ratio-1) == 0: #and update != 0:
+                            total_completed = {}
+                            total_reward = {}
+                            total_stage_successes = {}
+
+                            for a in range(config["env_config"]["num_agents"]):
+                                total_completed["agent_{0}".format(a)] = sum(completed_episodes["agent_{0}".format(a)][-update_ratio:])
+                                total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
+                                total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
+                                                                                for s in range(1, 4)}
+
+                            training_info[update] = print_info(storage, total_completed, total_reward, total_stage_successes,
+                                                                stages_sampled, update, average_reward, best_average_reward,
+                                                                average_success_rate, best_average_success_rate, success_rate,
+                                                                goal_line, goal_line_success, stages_rolling_success_rate, config)
+                            
+
+                            for a in range(config["env_config"]["num_agents"]):
+                                agent_info = training_info[update]["agent_{0}".format(a)]
+                                log_dict = {
+                                        "agent_{0}_rolling_average_reward".format(a): agent_info["rolling_average_reward"],
+                                        "agent_{0}_rolling_average_success_rate".format(a): agent_info["rolling_average_success_rate"],
+                                        "agent_{0}_completed".format(a): agent_info["completed"],
+                                        "agent_{0}_achieved_goal".format(a): agent_info["achieved_goal"],
+                                        "agent_{0}_achieved_goal_success".format(a): agent_info["achieved_goal_success"],
+                                        "agent_{0}_successes".format(a): agent_info["successes"],
+                                        "agent_{0}_rewards".format(a): agent_info["reward"]}
+                                
+                                #Log info for the different task stages in Crafting Env
+                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                                    for s in range(1, 4):
+                                        log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
+                                        log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
+                                        log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
+                                        log_dict["agent_{0}_stage_{1}_rolling_success_rate".format(a, s)] = agent_info["stage_{0}_rolling_success_rate".format(s)]
+
+                                wandb.log(log_dict)
+
+                            if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
+                                prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
+                                for a in range(config["env_config"]["num_agents"]):
+                                    save_path = os.path.join(run_path, "models".format(prev_best, update, a))
+                                    if not os.path.exists(save_path):
+                                        os.makedirs(save_path)
+                                    if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
+                                        os.remove(save_path + "/agent_{0}_model.pt".format(a))
+                                    torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
+                                                "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
+                                                save_path + "/agent_{0}_model.pt".format(a))
+                                print("Saved models for agents with average reward {0}".format(prev_best)) 
+                                                                                                                
+                            #Record a video every n updates
+                            if (update * update_ratio) % config["record_video_every"] == 0:
+                                video_path = os.path.join(run_path, "Videos/")
+                                
+                                video_config = {}
+                                video_config["env_config"] = config["env_config"].copy()
+                                video_config["env_config"]["num_envs"] = 1
+                                video_config["model_config"] = config["model_config"].copy()
+                                video_env = EnvironmentHandler(video_config)
+
+                                if not os.path.exists(video_path):
+                                    os.makedirs(video_path)
+                                record_video(video_config, video_env, policy_dict, 4, video_path, update)
+                                print("Recorded video for update {0}".format(update))                                                                 
                     
 
                     #Restart the workers
