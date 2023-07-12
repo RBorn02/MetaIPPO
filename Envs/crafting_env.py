@@ -44,7 +44,7 @@ class Diamond(GemElement):
 
 class Chest(ActivableByGem):
     def __init__(self, radius, physical_shape, texture, name, condition_obj=True, movable=True,
-                  graspable=True, reward=None, dropoff=False, **kwargs):
+                  graspable=True, out_reward=None, dropoff=False, **kwargs):
 
         super().__init__(
             config_key=ElementTypes.CHEST,
@@ -60,10 +60,10 @@ class Chest(ActivableByGem):
 
         self.dropoff = dropoff
         self.condition_obj = condition_obj
-        if reward != "no_object":
-            self.reward = reward
+        if out_reward != "no_object":
+            self.out_reward = out_reward
         else:
-            self.reward = None
+            self.out_reward = None
 
     def _set_pm_collision_type(self):
         for pm_shape in self._pm_shapes:
@@ -82,7 +82,8 @@ class Chest(ActivableByGem):
                 list_remove = [activating, self]
 
             if self.condition_obj:
-                elem_add = [(self.reward, self.coordinates)]
+                if self.out_reward is not None:
+                    elem_add = [(self.out_reward, self.coordinates)]
 
 
         return list_remove, elem_add
@@ -348,8 +349,8 @@ class CraftingEnv(MultiAgentEnv):
         self.end_condition_object_has_existed = False
         
         #Build element coordinates
-        self.build_coordinates()
-        self.build_env_coordinates()
+        element_coordinates = self.build_coordinates()
+        env_coordinates = self.build_env_coordinates()
 
         #Possible objects
         possible_objects = [("circle",[255,255,0]),("circle",[0,255,55]),("circle",[255,0,255]),
@@ -359,13 +360,13 @@ class CraftingEnv(MultiAgentEnv):
         end_conditions = ["no_object", "object_exists"]
         
         #Spawn in agents
-        self.spawn_agents()
+        self.spawn_agents(element_coordinates)
 
         self.stage = self.stage_scheduler()
     
         
         #Build the task tree and spawn in the required elements
-        self.task_dict = self.sample_task_tree(self.stage, end_conditions, possible_objects)
+        self.task_dict = self.sample_task_tree(self.stage, end_conditions, possible_objects, element_coordinates, env_coordinates)
 
         info = {}
         self._active_agents = self.playground.agents.copy()
@@ -440,7 +441,7 @@ class CraftingEnv(MultiAgentEnv):
         infos = {}
         
         for agent in self._active_agents:
-            if self.stage_first_reward_dict[agent.name]["stage_{0}".format(self.stage)] and reward == self.stage:
+            if self.stage_first_reward_dict[agent.name]["stage_{0}".format(self.stage)] and int(reward) == self.stage:
                 infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
             else:
                 infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
@@ -566,10 +567,10 @@ class CraftingEnv(MultiAgentEnv):
         truncateds["__all__"] = all(truncateds.values())
         return rewards, dones, truncateds, infos
     
-    def spawn_agents(self):
-        sample_pos_agents = random.sample(self.element_coordinates, self.num_agents)
-        self.element_coordinates.remove(sample_pos_agents[0])
-        self.element_coordinates.remove(sample_pos_agents[1])
+    def spawn_agents(self, element_coordinates):
+        sample_pos_agents = random.sample(element_coordinates, self.num_agents)
+        element_coordinates.remove(sample_pos_agents[0])
+        element_coordinates.remove(sample_pos_agents[1])
 
         agent_sampler_chest = CoordinateSampler(
             sample_pos_agents[0], area_shape="rectangle", size=(20, 40)
@@ -639,10 +640,12 @@ class CraftingEnv(MultiAgentEnv):
         return stage
 
     
-    def sample_task_tree(self, num_stages, end_conditions, possible_objects):
+    def sample_task_tree(self, num_stages, end_conditions, possible_objects, element_coordinates, 
+                         env_coordinates, num_distractors=0, playground=None):
         possible_object_types = possible_objects.copy()
         task_dict = {}
         end_condition = random.choice(end_conditions)
+        end_condition = "no_object"
         end_condition_object = random.choice(possible_object_types)
         possible_object_types.remove(end_condition_object)
         end_condition_object_shape = end_condition_object[0]
@@ -676,17 +679,45 @@ class CraftingEnv(MultiAgentEnv):
         
         task_dict["num_stages"] = num_stages
 
-        random.shuffle(self.element_coordinates)
+        random.shuffle(element_coordinates)
         for object, c in zip(task_out_objects, range(len(task_out_objects))):
             if object != "no_object":
-                object_coordinates = CoordinateSampler(self.element_coordinates[c], area_shape="rectangle", size=(10, 10))
-                self.playground.add_element(object, object_coordinates)
+                object_coordinates = CoordinateSampler(element_coordinates[c], area_shape="rectangle", size=(10, 10))
 
-        random.shuffle(self.env_coordinates)
+                if playground is None:
+                    self.playground.add_element(object, object_coordinates)
+                else:
+                    playground.add_element(object, object_coordinates)
+
+        random.shuffle(env_coordinates)
         needed_env_objects = [obj for sublist in needed_env_objects for obj in sublist]
         for env_obj, c in zip(needed_env_objects, range(len(needed_env_objects))):
-            env_object_coordinates = CoordinateSampler(self.env_coordinates[c], area_shape="rectangle", size=(10, 10))
-            self.playground.add_element(env_obj, env_object_coordinates)
+            env_object_coordinates = CoordinateSampler(env_coordinates[c], area_shape="rectangle", size=(10, 10))
+
+            if playground is None:
+                self.playground.add_element(env_obj, env_object_coordinates)
+            else:
+                playground.add_element(env_obj, env_object_coordinates)
+
+        if num_distractors > 0:
+            sampled_num_distractors = random.randint(0, num_distractors)
+        else:
+            sampled_num_distractors = 0
+        for d in range(sampled_num_distractors):
+            distractor_object = random.choice(possible_object_types)
+            possible_object_types.remove(distractor_object)
+            distractor_object_shape = distractor_object[0]
+            distractor_object_color = distractor_object[1]
+
+            distractor_object = Chest(physical_shape=distractor_object_shape, radius=10, 
+                                        texture=ColorTexture(color=distractor_object_color, size=10), 
+                                        name="distractor_object_{0}".format(d), condition_obj=False, temporary=True)
+            distractor_object_coordinates = CoordinateSampler(element_coordinates[d], area_shape="rectangle", size=(10, 10))
+
+            if playground is None:
+                self.playground.add_element(distractor_object, distractor_object_coordinates)
+            else:
+                playground.add_element(distractor_object, distractor_object_coordinates)
 
         return task_dict
     
@@ -704,7 +735,7 @@ class CraftingEnv(MultiAgentEnv):
 
                     chest_object = Chest(physical_shape=object_shape, radius=10, 
                                         texture=ColorTexture(color=object_color, size=10),
-                                        reward=object, 
+                                        out_reward=object, 
                                         name="chest_object_{0}".format(stage),
                                         temporary=True)
                     
@@ -837,6 +868,10 @@ class CraftingEnv(MultiAgentEnv):
                                     temporary=True)
             
             needed_in_objects.append(in_out_machine_diamond)
+            for obj in task_out_objects[1:]:
+                if obj != "no_object":
+                    needed_in_objects.append(obj)
+
             needed_env_object.append(in_out_machine)
             condition_obj = task_out_objects[0].name                                            
 
@@ -867,16 +902,17 @@ class CraftingEnv(MultiAgentEnv):
         return stage_task
     
     def build_coordinates(self):
-        self.element_coordinates = []
+        element_coordinates = []
         for w in range(50, self.playground_width, 50):
             x_coord = w
             for h in range(50, self.playground_height, 50):
                 y_coord = h
-                self.element_coordinates.append((x_coord, y_coord))
-        self.element_coordinates.remove((self.playground_width // 2, self.playground_height // 2))
+                element_coordinates.append((x_coord, y_coord))
+        element_coordinates.remove((self.playground_width // 2, self.playground_height // 2))
+        return element_coordinates
 
     def build_env_coordinates(self):
-        self.env_coordinates = []
+        env_coordinates = []
         quarter_width = self.playground_width // 4
         quarter_height = self.playground_height // 4
 
@@ -884,11 +920,12 @@ class CraftingEnv(MultiAgentEnv):
             x_coord = i * quarter_width
             y_coord = i * quarter_height
 
-            self.env_coordinates.append((x_coord, 20))
-            self.env_coordinates.append((x_coord, int(self.playground_width-20)))
+            env_coordinates.append((x_coord, 20))
+            env_coordinates.append((x_coord, int(self.playground_width-20)))
 
-            self.env_coordinates.append((20, y_coord))
-            self.env_coordinates.append((int(self.playground_height-20), y_coord))
+            env_coordinates.append((20, y_coord))
+            env_coordinates.append((int(self.playground_height-20), y_coord))
+        return env_coordinates
     
     def clip_actions(self, actions, act_idx):
         return np.clip(actions, self.action_space.low[act_idx], self.action_space.high[act_idx])

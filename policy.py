@@ -33,7 +33,7 @@ class LSTM_PPO_Policy():
         rewards = storage["rewards"].to(device)
         dones = storage["dones"].to(device)
         values = storage["values"].to(device)
-        next_lstm_state = storage["next_lstm_state"]
+        next_lstm_state = (storage["next_lstm_state"][0].to(device), storage["next_lstm_state"][1].to(device))
         num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         next_obs = next_obs.to(device)
@@ -43,8 +43,8 @@ class LSTM_PPO_Policy():
             next_message = next_message.to(device)
         
         actions = storage["actions"]
-        prev_actions = actions[-1]
-        prev_rewards = rewards[-1].unsqueeze(dim=1)
+        prev_actions = actions[-1].to(device)
+        prev_rewards = rewards[-1].unsqueeze(dim=1).to(device)
     
         with torch.no_grad():
             if next_message is None:
@@ -104,17 +104,14 @@ class LSTM_PPO_Policy():
         v_loss_ls = []
         entropy_ls = []
         predicted_values_mean = []
-        returns_mean = []
-        old_values_mean = []
-        advantages_mean = []
+        
         
         device = self.config["device"]
 
-        initial_lstm_state = storage["initial_lstm_state"]
+        initial_lstm_state = (storage["initial_lstm_state"][0].to(device), storage["initial_lstm_state"][1].to(device))
         obs = storage["obs"]
         actions = storage["actions"]
         prev_actions = storage["last_actions"]
-        rewards = storage["rewards"]
         prev_rewards = storage["last_rewards"]
         contact = storage["contact"]
         logprobs = storage["logprobs"]
@@ -125,16 +122,16 @@ class LSTM_PPO_Policy():
         num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         
-        b_obs = obs.reshape((-1,) + self.observation_shape)
-        b_logprobs = logprobs.reshape(-1)
-        b_actions = actions.reshape((-1,) + self.single_action_shape)
-        b_prev_actions = prev_actions.reshape((-1,) + self.single_action_shape)
-        b_contact = contact.reshape(-1, 1)
-        b_prev_rewards = prev_rewards.reshape(-1, 1)
-        b_advantages = advantages.reshape(-1)
-        b_dones = dones.reshape(-1)
-        b_returns = returns.reshape(-1)
-        b_values = values.reshape(-1)
+        b_obs = obs.reshape((-1,) + self.observation_shape).to(device)
+        b_logprobs = logprobs.reshape(-1).to(device)
+        b_actions = actions.reshape((-1,) + self.single_action_shape).to(device)
+        b_prev_actions = prev_actions.reshape((-1,) + self.single_action_shape).to(device)
+        b_contact = contact.reshape(-1, 1).to(device)
+        b_prev_rewards = prev_rewards.reshape(-1, 1).to(device)
+        b_advantages = advantages.reshape(-1).to(device)
+        b_dones = dones.reshape(-1).to(device)
+        b_returns = returns.reshape(-1).to(device)
+        b_values = values.reshape(-1).to(device)
 
         if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             b_messages_in = storage["message_in"].reshape((-1, self.config["env_config"]["message_length"]))
@@ -267,7 +264,7 @@ class LSTM_PPO_Policy_Pop():
         rewards = storage["rewards"].to(device)
         dones = storage["dones"].to(device)
         values = storage["values"].to(device)
-        next_lstm_state = storage["next_lstm_state"]
+        next_lstm_state = (storage["next_lstm_state"][0].to(device), storage["next_lstm_state"][1].to(device))
         num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         next_obs = next_obs.to(device)
@@ -277,8 +274,8 @@ class LSTM_PPO_Policy_Pop():
             next_message = next_message.to(device)
         
         actions = storage["actions"]
-        prev_actions = actions[-1]
-        prev_rewards = rewards[-1].unsqueeze(dim=1)
+        prev_actions = actions[-1].to(device)
+        prev_rewards = rewards[-1].unsqueeze(dim=1).to(device)
     
         with torch.no_grad():
             if next_message is None:
@@ -338,17 +335,12 @@ class LSTM_PPO_Policy_Pop():
         v_loss_ls = []
         entropy_ls = []
         predicted_values_mean = []
-        returns_mean = []
-        old_values_mean = []
-        advantages_mean = []
-        
         device = self.config["device"]
 
-        initial_lstm_state = storage["initial_lstm_state"]
+        initial_lstm_state = (storage["initial_lstm_state"][0].to(device), storage["initial_lstm_state"][1].to(device))
         obs = storage["obs"]
         actions = storage["actions"]
         prev_actions = storage["last_actions"]
-        rewards = storage["rewards"]
         prev_rewards = storage["last_rewards"]
         contact = storage["contact"]
         logprobs = storage["logprobs"]
@@ -359,16 +351,16 @@ class LSTM_PPO_Policy_Pop():
         num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         
-        b_obs = obs.reshape((-1,) + self.observation_shape)
-        b_logprobs = logprobs.reshape(-1)
-        b_actions = actions.reshape((-1,) + self.single_action_shape)
-        b_prev_actions = prev_actions.reshape((-1,) + self.single_action_shape)
-        b_contact = contact.reshape(-1, 1)
-        b_prev_rewards = prev_rewards.reshape(-1, 1)
-        b_advantages = advantages.reshape(-1)
-        b_dones = dones.reshape(-1)
-        b_returns = returns.reshape(-1)
-        b_values = values.reshape(-1)
+        b_obs = obs.reshape((-1,) + self.observation_shape).to(device)
+        b_logprobs = logprobs.reshape(-1).to(device)
+        b_actions = actions.reshape((-1,) + self.single_action_shape).to(device)
+        b_prev_actions = prev_actions.reshape((-1,) + self.single_action_shape).to(device)
+        b_contact = contact.reshape(-1, 1).to(device)
+        b_prev_rewards = prev_rewards.reshape(-1, 1).to(device)
+        b_advantages = advantages.reshape(-1).to(device)
+        b_dones = dones.reshape(-1).to(device)
+        b_returns = returns.reshape(-1).to(device)
+        b_values = values.reshape(-1).to(device)
 
         if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             b_messages_in = storage["message_in"].reshape((-1, self.config["env_config"]["message_length"]))
