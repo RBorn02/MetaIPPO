@@ -785,7 +785,7 @@ class CraftingEnv(MultiAgentEnv):
             condition_obj = dropoff_diamond.name
         
         elif stage_task_type == "activate_landmarks":
-            possible_agent_names = ["agent_0", "agent_0"] #TODO: Make more general
+            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
             second_agent = possible_agent_names[0]
@@ -819,7 +819,7 @@ class CraftingEnv(MultiAgentEnv):
                 condition_obj = "no_object"
 
         elif stage_task_type == "lemon_hunt":
-            possible_agent_names = ["agent_0", "agent_0"] #TODO: Make more general
+            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
             lemon_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(lemon_agent)
             agent_name = possible_agent_names[0]
