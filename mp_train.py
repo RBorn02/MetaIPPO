@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from policy import LSTM_PPO_Policy
 from agent import LSTMAgent, CommsLSTMAgent
 from Envs.environment_handler import EnvironmentHandler
-from Utils.train_utils import build_config, build_storage, handle_dones, print_info, get_init_tensors, truncate_storage, reset_storage, build_storage_from_batch, record_video
+from Utils.train_utils import *
 
 parser = ArgumentParser()
 
@@ -190,6 +190,17 @@ def rollout(pid, policy_dict, train_queue, done, config):
     while True:
         try:
             if bool(done[pid]) is False:
+                #Move tensors back to gpu after sending to other workers if cuda. Ugly but works
+                if config["device"] == "cuda":
+                    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+                        move_tensors_to_gpu([storage, next_obs, next_messages_in, next_dones, success_rate, achieved_goal,
+                                            achieved_goal_success, next_contact, last_actions, last_rewards,
+                                            stages_success_info])
+                    else:
+                        move_tensors_to_gpu([storage, next_obs, next_dones, success_rate, achieved_goal,
+                                            achieved_goal_success, next_contact, last_actions, last_rewards,
+                                            stages_success_info])
+                
                 for a in range(config["env_config"]["num_agents"]):
                     next_agent_obs = next_obs["agent_{0}".format(a)].to(device)
                     next_agent_dones = next_dones["agent_{0}".format(a)].to(device)
@@ -301,10 +312,22 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 #Hold training for the worker if enough data is collected and put it into the training queue
                 if rollout_step >= (config["rollout_steps"] / (config["num_workers"]*config["env_config"]["num_envs"]) - 1):
                     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+
+                        #Move tensors to cpu to share them across workers
+                        if config["device"] == "cuda":
+                            move_tensors_to_cpu([storage, next_obs, next_dones, success_rate, achieved_goal,
+                                                achieved_goal_success, next_contact, next_messages_in,
+                                                stages_success_info])
+                        
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
                                          achieved_goal_success, next_contact, next_messages_in,
                                          stages_success_info), block=True)
                     else:
+
+                        if config["device"] == "cuda":
+                            move_tensors_to_cpu([storage, next_obs, next_dones, success_rate, achieved_goal,
+                                                    achieved_goal_success, next_contact, stages_success_info])
+                        
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
                                          achieved_goal_success, next_contact, stages_success_info), block=True)
                     done[pid] = 1

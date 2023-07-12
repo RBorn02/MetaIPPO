@@ -218,6 +218,47 @@ def reset_storage(storage, config, env):
             else:
                 continue
     return storage
+
+def move_tensors_to_cpu(inputs_list):
+    for input, idx in zip(inputs_list, range(len(inputs_list))):
+        if isinstance(input, torch.Tensor):
+            input.cpu()
+        elif isinstance(input, Mapping):
+            for key, value in input.items():
+                if isinstance(value, torch.Tensor):
+                    input[key] = value.cpu()
+                elif isinstance(value, Mapping):
+                    for key2, value2 in value.items():
+                        if isinstance(value2, torch.Tensor):
+                            input[key][key2] = value2.cpu()
+                        else:
+                            obj_1 = value2[0]
+                            obj_2 = value2[1]
+                            if isinstance(obj_1, torch.Tensor):
+                                input[key][key2] = (obj_1.cpu(), obj_2.cpu())
+
+def move_tensors_to_gpu(inputs_list):
+    for input, idx in zip(inputs_list, range(len(inputs_list))):
+        if isinstance(input, torch.Tensor):
+            input.cuda()
+        elif isinstance(input, Mapping):
+            for key, value in input.items():
+                if isinstance(value, torch.Tensor):
+                    input[key] = value.cuda()
+                elif isinstance(value, Mapping):
+                    for key2, value2 in value.items():
+                        if isinstance(value2, torch.Tensor):
+                            input[key][key2] = value2.cuda()
+                        else:
+                            obj_1 = value2[0]
+                            obj_2 = value2[1]
+                            if isinstance(obj_1, torch.Tensor):
+                                input[key][key2] = (obj_1.cuda(), obj_2.cuda())
+        
+
+
+
+
             
 
 
