@@ -68,6 +68,7 @@ def compute_reward(playground, task_dict, stage, agent_goal_dict, success_rate_d
         stage_success = []
         for stage in range(1, stage + 1):
             stage_success.append(any(success_rate_dict["stage_{0}".format(stage)]))
+            #stage_success.append(success_rate_dict["stage_{0}".format(stage)][-1])
         
         reward = sum(stage_success)
         
