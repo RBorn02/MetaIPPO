@@ -430,7 +430,7 @@ class CraftingEnv(MultiAgentEnv):
         
         stage_success = []
         for stage in range(1, self.stage + 1):
-            stage_success.append(self.success_rate_dict["stage_{0}".format(stage)][-1])
+            stage_success.append(any(self.success_rate_dict["stage_{0}".format(stage)]))
         
         reward = sum(stage_success)
 
@@ -645,7 +645,6 @@ class CraftingEnv(MultiAgentEnv):
         possible_object_types = possible_objects.copy()
         task_dict = {}
         end_condition = random.choice(end_conditions)
-        end_condition = "no_object"
         end_condition_object = random.choice(possible_object_types)
         possible_object_types.remove(end_condition_object)
         end_condition_object_shape = end_condition_object[0]
@@ -882,7 +881,10 @@ class CraftingEnv(MultiAgentEnv):
             if "lemon_hunt" not in assigned_stage_tasks:
                 stage_task = "activate_landmarks"
             else:
-                stage_task = random.choice(["crafting", "in_out_machine"])
+                if "in_out_machine" not in assigned_stage_tasks:
+                    stage_task = random.choice(["crafting", "in_out_machine"])
+                else:
+                    stage_task = "crafting"
         elif stage == num_stages and num_stages > 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
