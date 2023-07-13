@@ -375,6 +375,9 @@ class CraftingEnv(MultiAgentEnv):
         for agent in self._active_agents:
             self.stage_first_reward_dict[agent.name] = {"stage_{0}".format(s): True for s in range(1, self.stage + 1)}
         
+        for s in range(1, 4):
+            self.success_rate_dict["stage_{0}".format(s)] = [False]
+        
         self.engine.elapsed_time = 0
         self.time_steps = 0
         self.episodes += 1
@@ -471,102 +474,7 @@ class CraftingEnv(MultiAgentEnv):
         truncateds["__all__"] = all(truncateds.values())
         return rewards, dones, truncateds, infos
     
-    def compute_reward(self):
-        reward = False
 
-        end_condition_type = self.task_dict["end_condition"]
-
-        existing_playground_element_names = [element.name for element in self.playground.elements]
-
-
-        for s in range(1, self.stage+1):
-            if s < self.stage:
-                condition_object = self.task_dict["stage_{0}".format(s)]["condition_object"]
-                if condition_object in existing_playground_element_names:
-                    self.success_rate_dict["stage_{0}".format(s)].append(True)
-                else:
-                    self.success_rate_dict["stage_{0}".format(s)].append(False)
-            else:
-                if end_condition_type == "object_exists":
-                    end_condition_object = self.task_dict["end_condition_object"]
-                    if end_condition_object.name in existing_playground_element_names:
-                        self.success_rate_dict["stage_{0}".format(s)].append(True)
-                        reward = True
-                    else:
-                        self.success_rate_dict["stage_{0}".format(s)].append(False)
-                else:
-                    condition_object = self.task_dict["stage_{0}".format(s)]["condition_object"]
-                    if condition_object != "no_object":
-                        if condition_object in existing_playground_element_names:
-                            end_condition_object_exists = True
-                            self.end_condition_object_has_existed = True
-                        else:
-                            end_condition_object_exists = False
-
-                        if end_condition_object_exists is False and self.end_condition_object_has_existed is True:
-                            self.success_rate_dict["stage_{0}".format(s)].append(True)
-                            reward = True
-                        else:
-                            self.success_rate_dict["stage_{0}".format(s)].append(False)
-                    else:
-                        #Shoud only be possible for one stage activate landmarks
-                        active_list = []
-                        for element in self.playground.elements:
-                            if isinstance(element, CustomRewardOnActivation):
-                                active_list.append(element.active)
-                        if all(active_list):
-                            self.success_rate_dict["stage_{0}".format(s)].append(True)
-                            reward = True
-                        else:
-                            self.success_rate_dict["stage_{0}".format(s)].append(False)
-        
-
-        rewards = {}
-        dones = {}
-        truncateds = {}
-        infos = {}
-        
-        for agent in self._active_agents:
-            if reward:
-                agent_reward = 1.0
-            else:
-                agent_reward = 0.0
-            rewards[agent.name] = agent_reward
-
-            if self.stage_first_reward_dict[agent.name]["stage_{0}".format(self.stage)] and bool(reward):
-                print("Reward")
-                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
-            else:
-                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
-            
-            for s in range(1, self.stage + 1):
-                if self.success_rate_dict["stage_{0}".format(s)][-1]: 
-                    if self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)]:
-                        infos[agent.name]["success_stage_{0}".format(s)] = 1.0
-                        self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)] = False
-                    else:
-                        infos[agent.name]["success_stage_{0}".format(s)] = 0.0
-                else:
-                    infos[agent.name]["success_stage_{0}".format(s)] = 0.0
-                    
-            for s in range(self.stage+1, 4):
-                infos[agent.name]["success_stage_{0}".format(s)] = -1.0
-    
-            if self.single_reward:
-                done = reward or self.playground.done or not self.engine.game_on
-            else:
-                rewards[agent.name] = 0.1 * agent_reward
-                done = self.playground.done or not self.engine.game_on
-            
-            
-            truncated = self.playground.done or not self.engine.game_on
-            dones[agent.name] = done
-            truncateds[agent.name] = truncated
-
-        dones["__all__"] = all(dones.values())
-        truncateds["__all__"] = all(truncateds.values())
-        return rewards, dones, truncateds, infos
-    
     def spawn_agents(self, element_coordinates):
         sample_pos_agents = random.sample(element_coordinates, self.num_agents)
         element_coordinates.remove(sample_pos_agents[0])
@@ -888,6 +796,7 @@ class CraftingEnv(MultiAgentEnv):
         elif stage == num_stages and num_stages > 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
+                stage_task = "lemon_hunt"
             else:
                 stage_task = random.choice(["crafting", "in_out_machine"])
         elif stage == num_stages and num_stages == 1:
