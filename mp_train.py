@@ -44,6 +44,8 @@ parser.add_argument("--playground_height", type=int, default=300,
                     help="Height of the playground")
 parser.add_argument("--playground_width", type=int, default=300,
                     help="Width of the playground")
+parser.add_argument("--agent_resolution", type=int, default=64,
+                    help="Resolution of the agent view")
 parser.add_argument("--num_envs", type=int, default=16,
                     help="Number of environments to vectorize")
 parser.add_argument("--time_limit", type=int, default=250,
