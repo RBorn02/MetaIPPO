@@ -34,7 +34,7 @@ class Diamond(GemElement):
             texture=texture,
             graspable=True,
             movable=True,
-            mass=20,
+            mass=1,
             name=name,
             **kwargs
         )
@@ -53,7 +53,7 @@ class Chest(ActivableByGem):
             texture=texture,
             movable=movable,
             graspable=graspable,
-            mass=20,
+            mass=1,
             name=name,
             **kwargs
         )
@@ -155,7 +155,7 @@ class LemonDispenser(ActivableElement):
             texture=texture,
             movable=True,
             graspable=True,
-            mass=20,
+            mass=1,
             name=name,
             **kwargs
         )
@@ -170,7 +170,6 @@ class LemonDispenser(ActivableElement):
         elem_add = None
 
         if activating.name == self.agent_name:
-            self.condition_satisfied = True
             list_remove = [self]
             elem_add = [(self.out_reward, self.coordinates)]
 
@@ -193,18 +192,20 @@ class Lemon(ContactElement):
             texture=texture,
             movable=True,
             graspable=True,
-            mass=20,
+            mass=1,
             name=name,
             **kwargs
         )
 
         self.agent_name = agent_name
+        self.condition_satisfied = False
     
     def activate(self, activating):
         list_remove = None
         elem_add = None
 
         if activating.name == self.agent_name:
+            self.condition_satisfied = True
             list_remove = [self]
 
         return list_remove, elem_add
@@ -516,6 +517,7 @@ class CraftingEnv(MultiAgentEnv):
             agent = BaseAgent(
             controller=External(),
             radius=12,
+            mass=15,
             interactive=True, 
             name="agent_{0}".format(i),
             texture=UniqueCenteredStripeTexture(size=10,
@@ -712,7 +714,7 @@ class CraftingEnv(MultiAgentEnv):
             condition_obj = dropoff
         
         elif stage_task_type == "activate_landmarks":
-            possible_agent_names = ["agent_0", "agent_0"] #TODO: Make more general
+            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
             second_agent = possible_agent_names[0]
@@ -747,7 +749,7 @@ class CraftingEnv(MultiAgentEnv):
             condition_obj = landmark1
 
         elif stage_task_type == "lemon_hunt":
-            possible_agent_names = ["agent_0", "agent_0"] #TODO: Make more general
+            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
             lemon_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(lemon_agent)
             agent_name = possible_agent_names[0]
@@ -776,7 +778,7 @@ class CraftingEnv(MultiAgentEnv):
             
             needed_in_objects.append(lemon_dispenser)
             #condition_obj = lemon.name
-            condition_obj = lemon_dispenser
+            condition_obj = lemon
         
         else:
             assert task_out_objects[0] != "no_object"
