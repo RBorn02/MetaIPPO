@@ -286,6 +286,7 @@ def build_config(args):
         config["env_config"]["max_prob"] = args.max_prob
         config["env_config"]["playground_height"] = args.playground_height
         config["env_config"]["playground_width"] = args.playground_width
+        config["env_config"]["agent_resolution"] = args.agent_resolution
         
         config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
@@ -321,6 +322,8 @@ def build_config(args):
         config["model_config"]["use_last_action_reward"] = args.use_last_action_reward
         config["model_config"]["contact"] = args.contact
         config["model_config"]["one_hot_message"] = args.one_hot_message
+        config["model_config"]["actor_hidden_size"] = args.actor_hidden_size
+        config["model_config"]["critic_hidden_size"] = args.critic_hidden_size
 
     return config
 
@@ -482,8 +485,8 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
                         )
                 if s < num_steps - 1:
                     past_actions[s + 1, a] = actions[:,a].squeeze(dim=0)
-                next_lstm_state[0][:,a] = next_agent_lstm_state[0]
-                next_lstm_state[1][:,a] = next_agent_lstm_state[1]
+                next_lstm_state[0][:,a] = next_agent_lstm_state[0].squeeze(dim=1)
+                next_lstm_state[1][:,a] = next_agent_lstm_state[1].squeeze(dim=1)
 
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             input_dict = {}

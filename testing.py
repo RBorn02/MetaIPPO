@@ -41,6 +41,8 @@ parser.add_argument("--playground_height", type=int, default=300,
                     help="Height of the playground")
 parser.add_argument("--playground_width", type=int, default=300,
                     help="Width of the playground")
+parser.add_argument("--agent_resolution", type=int, default=64,
+                    help="Resolution of the agent view")
 parser.add_argument("--num_envs", type=int, default=16,
                     help="Number of environments to vectorize")
 parser.add_argument("--time_limit", type=int, default=250,
@@ -107,6 +109,10 @@ parser.add_argument("--lstm_hidden_size", type=int, default=64,
                     help="Size of the LSTM hidden state")
 parser.add_argument("--lstm_layers", type=int, default=1,
                     help="Number of LSTM layers")
+parser.add_argument("--critic_hidden_size", type=int, default=64,
+                    help="Size of the critic hidden state")
+parser.add_argument("--actor_hidden_size", type=int, default=64,
+                    help="Size of the actor hidden state")
 parser.add_argument("--use_last_action_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Toggles whether or not to use the last action and reward as input to the LSTM")
 parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
@@ -311,9 +317,9 @@ if __name__ == "__main__":
         rollout_step += 1
 
     #Print info
-    print_info(storage, next_dones, 0, average_reward, best_average_reward,
-                average_success_rate, best_average_success_rate, success_rate,
-                achieved_goal, achieved_goal_success, stages_success_info, stages_rolling_success_rate, config)
+    #print_info(storage, next_dones, 0, average_reward, best_average_reward,
+    #            average_success_rate, best_average_success_rate, success_rate,
+    #            achieved_goal, achieved_goal_success, stages_success_info, stages_rolling_success_rate, config)
 
     #Record a video
     path = config["pretrained"].removesuffix("models")

@@ -31,19 +31,19 @@ class LSTMAgent(nn.Module):
         )
 
         self.critic = nn.Sequential(
-            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 64)),
+            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], self.model_config["critic_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 64)),
+            self.layer_init(nn.Linear(self.model_config["critic_hidden_size"], self.model_config["critic_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 1), std=1.0),
+            self.layer_init(nn.Linear(self.model_config["critic_hidden_size"], 1), std=1.0),
         )
 
         self.actor_mean = nn.Sequential(
-            self.layer_init(nn.Linear(np.array(self.model_config["lstm_hidden_size"]).prod(), 64)),
+            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], self.model_config["actor_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 64)),
+            self.layer_init(nn.Linear(self.model_config["actor_hidden_size"], self.model_config["actor_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, np.prod(self.action_space_shape)), std=0.01),
+            self.layer_init(nn.Linear(self.model_config["actor_hidden_size"], np.prod(self.action_space_shape)), std=0.01),
         )
 
         self.linear_in = nn.Linear(self.get_lin_input(self.observation_shape), self.model_config["lstm_in_size"])
@@ -161,19 +161,19 @@ class CommsLSTMAgent(nn.Module):
                 nn.init.orthogonal_(param, 1.0)
 
         self.critic = nn.Sequential(
-            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 64)),
+            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], self.model_config["critic_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 64)),
+            self.layer_init(nn.Linear(self.model_config["critic_hidden_size"], self.model_config["critic_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 1), std=1.0),
+            self.layer_init(nn.Linear(self.model_config["critic_hidden_size"], 1), std=1.0),
         )
 
         self.actor_mean = nn.Sequential(
-            self.layer_init(nn.Linear(np.array(self.model_config["lstm_hidden_size"]).prod(), 64)),
+            self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], self.model_config["actor_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, 64)),
+            self.layer_init(nn.Linear(self.model_config["actor_hidden_size"], self.model_config["actor_hidden_size"])),
             nn.Tanh(),
-            self.layer_init(nn.Linear(64, np.prod(self.movement_shape) + sum(self.message_space)), std=0.01),
+            self.layer_init(nn.Linear(self.model_config["actor_hidden_size"], np.prod(self.movement_shape) + sum(self.message_space)), std=0.01),
         )
         
         self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(self.movement_shape))) 

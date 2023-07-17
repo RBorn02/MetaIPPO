@@ -110,6 +110,10 @@ parser.add_argument("--lstm_hidden_size", type=int, default=64,
                     help="Size of the LSTM hidden state")
 parser.add_argument("--lstm_layers", type=int, default=1,
                     help="Number of LSTM layers")
+parser.add_argument("--critic_hidden_size", type=int, default=64,
+                    help="Size of the critic hidden state")
+parser.add_argument("--actor_hidden_size", type=int, default=64,
+                    help="Size of the actor hidden state")
 parser.add_argument("--use_last_action_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Toggles whether or not to use the last action and reward as input to the LSTM")
 parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,

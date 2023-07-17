@@ -64,6 +64,8 @@ class Chest(ActivableByGem):
             self.out_reward = out_reward
         else:
             self.out_reward = None
+        
+        self.condition_satisfied = False
 
     def _set_pm_collision_type(self):
         for pm_shape in self._pm_shapes:
@@ -75,7 +77,7 @@ class Chest(ActivableByGem):
         elem_add = None
 
         if activating.elem_activated is self:
-
+            self.condition_satisfied = True
             if self.dropoff:
                 list_remove = [activating]
             else:
@@ -101,6 +103,8 @@ class CustomRewardOnActivation(RewardOnActivation):
             self.out_reward = out_reward
         else:
             self.out_reward = None
+        
+        self.condition_satisfied = False
 
     def activate(self, activating):
         list_remove = None
@@ -111,6 +115,8 @@ class CustomRewardOnActivation(RewardOnActivation):
                 self.active = True
                 self._texture_surface.fill(color=(255, 255, 255))
                 if self.partner_landmark.active:
+                    self.condition_satisfied = True
+                    self.partner_landmark.condition_satisfied = True
                     self_spawn_coordinates, partner_spawn_coordinates = self.get_spawn_coordinates()
                     if self.out_reward is not None:
                         elem_add = [(self.out_reward, self_spawn_coordinates)]
@@ -157,12 +163,14 @@ class LemonDispenser(ActivableElement):
         self.graspable = True
         self.agent_name = agent_name
         self.out_reward = out_reward
+        self.condition_satisfied = False
     
     def activate(self, activating):
         list_remove = None
         elem_add = None
 
         if activating.name == self.agent_name:
+            self.condition_satisfied = True
             list_remove = [self]
             elem_add = [(self.out_reward, self.coordinates)]
 
@@ -224,6 +232,7 @@ class InputOutputMachine(ActivableByGem):
         self.graspable = True
         self.condition_obj = condition_obj
         self.reward = reward
+        self.condition_satisfied = False
 
     def _set_pm_collision_type(self):
         for pm_shape in self._pm_shapes:
@@ -235,7 +244,7 @@ class InputOutputMachine(ActivableByGem):
         elem_add = None
 
         if activating.elem_activated is self:
-
+            self.condition_satisfied = True
             if self.condition_obj:
                 coordinates = self.get_spawn_coordinates()
                 elem_add = [(self.reward, coordinates)]
@@ -263,6 +272,7 @@ class CraftingEnv(MultiAgentEnv):
         self.timelimit = config["timelimit"]
         self.playground_height = config["playground_height"]
         self.playground_width = config["playground_width"]
+        self.resolution = config["agent_resolution"]
         self.seed = config["seed"]
         self.min_prob = config["min_prob"]
         self.max_prob = config["max_prob"]
@@ -303,7 +313,7 @@ class CraftingEnv(MultiAgentEnv):
             high=np.array(highs).astype(np.float32),
             dtype=np.float32)
         
-        self.observation_space = spaces.Box(high=1, low=0, shape=(64, 64, 3), dtype=np.float32)
+        self.observation_space = spaces.Box(high=1, low=0, shape=(self.resolution, self.resolution, 3), dtype=np.float32)
 
         self.success_rate_dict = {}
         for s in range(1, 4):
@@ -388,48 +398,55 @@ class CraftingEnv(MultiAgentEnv):
     
     def compute_reward_every_stage(self):
 
-        end_condition_type = self.task_dict["end_condition"]
-
-        existing_playground_element_names = [element.name for element in self.playground.elements]
-
-
         for s in range(1, self.stage+1):
-            if s < self.stage:
-                condition_object = self.task_dict["stage_{0}".format(s)]["condition_object"]
-                if condition_object in existing_playground_element_names:
-                    self.success_rate_dict["stage_{0}".format(s)].append(True)
-                else:
-                    self.success_rate_dict["stage_{0}".format(s)].append(False)
+            condition_obj = self.task_dict["stage_{0}".format(s)]["condition_object"]
+            if condition_obj.condition_satisfied:
+                self.success_rate_dict["stage_{0}".format(s)].append(True)
             else:
-                if end_condition_type == "object_exists":
-                    end_condition_object = self.task_dict["end_condition_object"]
-                    if end_condition_object.name in existing_playground_element_names:
-                        self.success_rate_dict["stage_{0}".format(s)].append(True)
-                    else:
-                        self.success_rate_dict["stage_{0}".format(s)].append(False)
-                else:
-                    condition_object = self.task_dict["stage_{0}".format(s)]["condition_object"]
-                    if condition_object != "no_object":
-                        if condition_object in existing_playground_element_names:
-                            end_condition_object_exists = True
-                            self.end_condition_object_has_existed = True
-                        else:
-                            end_condition_object_exists = False
+                self.success_rate_dict["stage_{0}".format(s)].append(False)
 
-                        if end_condition_object_exists is False and self.end_condition_object_has_existed is True:
-                            self.success_rate_dict["stage_{0}".format(s)].append(True)
-                        else:
-                            self.success_rate_dict["stage_{0}".format(s)].append(False)
-                    else:
-                        #Shoud only be possible for one stage activate landmarks
-                        active_list = []
-                        for element in self.playground.elements:
-                            if isinstance(element, CustomRewardOnActivation):
-                                active_list.append(element.active)
-                        if all(active_list):
-                            self.success_rate_dict["stage_{0}".format(s)].append(True)
-                        else:
-                            self.success_rate_dict["stage_{0}".format(s)].append(False)
+        # end_condition_type = self.task_dict["end_condition"]
+
+        # existing_playground_element_names = [element.name for element in self.playground.elements]
+
+
+        # for s in range(1, self.stage+1):
+        #     if s < self.stage:
+        #         condition_object = self.task_dict["stage_{0}".format(s)]["condition_object"]
+        #         if condition_object in existing_playground_element_names:
+        #             self.success_rate_dict["stage_{0}".format(s)].append(True)
+        #         else:
+        #             self.success_rate_dict["stage_{0}".format(s)].append(False)
+        #     else:
+        #         if end_condition_type == "object_exists":
+        #             end_condition_object = self.task_dict["end_condition_object"]
+        #             if end_condition_object.name in existing_playground_element_names:
+        #                 self.success_rate_dict["stage_{0}".format(s)].append(True)
+        #             else:
+        #                 self.success_rate_dict["stage_{0}".format(s)].append(False)
+        #         else:
+        #             condition_object = self.task_dict["stage_{0}".format(s)]["condition_object"]
+        #             if condition_object != "no_object":
+        #                 if condition_object in existing_playground_element_names:
+        #                     end_condition_object_exists = True
+        #                     self.end_condition_object_has_existed = True
+        #                 else:
+        #                     end_condition_object_exists = False
+
+        #                 if end_condition_object_exists is False and self.end_condition_object_has_existed is True:
+        #                     self.success_rate_dict["stage_{0}".format(s)].append(True)
+        #                 else:
+        #                     self.success_rate_dict["stage_{0}".format(s)].append(False)
+        #             else:
+        #                 #Shoud only be possible for one stage activate landmarks
+        #                 active_list = []
+        #                 for element in self.playground.elements:
+        #                     if isinstance(element, CustomRewardOnActivation):
+        #                         active_list.append(element.active)
+        #                 if all(active_list):
+        #                     self.success_rate_dict["stage_{0}".format(s)].append(True)
+        #                 else:
+        #                     self.success_rate_dict["stage_{0}".format(s)].append(False)
         
         stage_success = []
         for stage in range(1, self.stage + 1):
@@ -462,7 +479,7 @@ class CraftingEnv(MultiAgentEnv):
             for s in range(self.stage+1, 4):
                 infos[agent.name]["success_stage_{0}".format(s)] = -1.0
     
-            rewards[agent.name] = 0.1 * reward
+            rewards[agent.name] = 0.1 * reward**2
             done = self.playground.done or not self.engine.game_on
             
             
@@ -516,7 +533,7 @@ class CraftingEnv(MultiAgentEnv):
         for agent, idx in zip(agent_ls, range(self.num_agents)):
             ignore_agents = [agent_ig.parts for agent_ig in agent_ls if agent_ig != agent]
             ignore_agents = [agent_part for agent_ls in ignore_agents for agent_part in agent_ls]
-            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=64, max_range=160, normalize=True))
+            agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=self.resolution, max_range=160, normalize=True))
             self.playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=True, max_attempts=10)
     
     def stage_scheduler(self):
@@ -660,18 +677,20 @@ class CraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(diamond_object)
                     needed_in_objects.append(chest_object)
 
-                    if task_out_objects[0] == "no_object":
-                        condition_obj = diamond_object.name
-                    else:
-                        condition_obj = task_out_objects[0].name
+                    #if task_out_objects[0] == "no_object":
+                    #    condition_obj = diamond_object.name
+                    #else:
+                    #    condition_obj = task_out_objects[0].name
+
+                    condition_obj = chest_object
                 else:
                     needed_in_objects.append(object)
                 
         elif stage_task_type == "dropoff":
             assert task_out_objects[0] == "no_object"
 
-            dropoff = Chest(physical_shape="rectangle", radius=15,
-                            texture=MultipleCenteredStripesTexture(color_1=[200, 200, 200], color_2=[20, 20, 20], size=15, n_stripes=3),
+            dropoff = Chest(physical_shape="triangle", radius=15,
+                            texture=MultipleCenteredStripesTexture(color_1=[200, 200, 200], color_2=[20, 20, 20], size=15, n_stripes=9),
                             condition_obj=False, movable=False, graspable=False,
                             dropoff=True,
                             name="dropoff",
@@ -689,10 +708,11 @@ class CraftingEnv(MultiAgentEnv):
             
             needed_in_objects.append(dropoff_diamond)
             needed_env_object.append(dropoff)
-            condition_obj = dropoff_diamond.name
+            #condition_obj = dropoff_diamond.name
+            condition_obj = dropoff
         
         elif stage_task_type == "activate_landmarks":
-            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
+            possible_agent_names = ["agent_0", "agent_0"] #TODO: Make more general
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
             second_agent = possible_agent_names[0]
@@ -720,13 +740,14 @@ class CraftingEnv(MultiAgentEnv):
 
             needed_env_object.append(landmark1)
             needed_env_object.append(landmark2)
-            if task_out_objects[0] != [] and task_out_objects[0] != "no_object":
-                condition_obj = task_out_objects[0].name
-            else:
-                condition_obj = "no_object"
+            #if task_out_objects[0] != [] and task_out_objects[0] != "no_object":
+            #    condition_obj = task_out_objects[0].name
+            #else:
+            #    condition_obj = "no_object"
+            condition_obj = landmark1
 
         elif stage_task_type == "lemon_hunt":
-            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
+            possible_agent_names = ["agent_0", "agent_0"] #TODO: Make more general
             lemon_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(lemon_agent)
             agent_name = possible_agent_names[0]
@@ -754,12 +775,13 @@ class CraftingEnv(MultiAgentEnv):
                                                                 temporary=True)
             
             needed_in_objects.append(lemon_dispenser)
-            condition_obj = lemon.name
+            #condition_obj = lemon.name
+            condition_obj = lemon_dispenser
         
         else:
             assert task_out_objects[0] != "no_object"
             in_out_machine = InputOutputMachine(physical_shape="rectangle", radius=15,
-                            texture=MultipleCenteredStripesTexture(color_1=[100, 100, 100], color_2=[255, 255, 255], size=15, n_stripes=3),
+                            texture=MultipleCenteredStripesTexture(color_1=[100, 100, 100], color_2=[255, 255, 255], size=15, n_stripes=9),
                             condition_obj=True,
                             name="in_out_machine", reward=task_out_objects[0],
                             temporary=True)
@@ -780,7 +802,8 @@ class CraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(obj)
 
             needed_env_object.append(in_out_machine)
-            condition_obj = task_out_objects[0].name                                            
+            #condition_obj = task_out_objects[0].name
+            condition_obj = in_out_machine                                            
 
         return needed_in_objects, needed_env_object, condition_obj
 
@@ -796,7 +819,6 @@ class CraftingEnv(MultiAgentEnv):
         elif stage == num_stages and num_stages > 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
-                stage_task = "lemon_hunt"
             else:
                 stage_task = random.choice(["crafting", "in_out_machine"])
         elif stage == num_stages and num_stages == 1:

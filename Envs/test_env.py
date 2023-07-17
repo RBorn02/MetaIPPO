@@ -24,46 +24,53 @@ def compute_reward(playground, task_dict, stage, agent_goal_dict, success_rate_d
 
         end_condition_type = task_dict["end_condition"]
 
-        existing_playground_element_names = [element.name for element in playground.elements]
-
-
         for s in range(1, stage+1):
-            if s < stage:
-                condition_object = task_dict["stage_{0}".format(s)]["condition_object"]
-                if condition_object in existing_playground_element_names:
-                    success_rate_dict["stage_{0}".format(s)].append(True)
-                else:
-                    success_rate_dict["stage_{0}".format(s)].append(False)
+            condition_obj = task_dict["stage_{0}".format(s)]["condition_object"]
+            if condition_obj.condition_satisfied:
+                success_rate_dict["stage_{0}".format(s)].append(True)
             else:
-                if end_condition_type == "object_exists":
-                    end_condition_object = task_dict["end_condition_object"]
-                    if end_condition_object.name in existing_playground_element_names:
-                        success_rate_dict["stage_{0}".format(s)].append(True)
-                    else:
-                        success_rate_dict["stage_{0}".format(s)].append(False)
-                else:
-                    condition_object = task_dict["stage_{0}".format(s)]["condition_object"]
-                    if condition_object != "no_object":
-                        if condition_object in existing_playground_element_names:
-                            end_condition_object_exists = True
-                            end_condition_object_has_existed = True
-                        else:
-                            end_condition_object_exists = False
+                success_rate_dict["stage_{0}".format(s)].append(False)
+
+        #existing_playground_element_names = [element.name for element in playground.elements]
+
+
+        # for s in range(1, stage+1):
+        #     if s < stage:
+        #         condition_object = task_dict["stage_{0}".format(s)]["condition_object"]
+        #         if condition_object in existing_playground_element_names:
+        #             success_rate_dict["stage_{0}".format(s)].append(True)
+        #         else:
+        #             success_rate_dict["stage_{0}".format(s)].append(False)
+        #     else:
+        #         if end_condition_type == "object_exists":
+        #             end_condition_object = task_dict["end_condition_object"]
+        #             if end_condition_object.name in existing_playground_element_names:
+        #                 success_rate_dict["stage_{0}".format(s)].append(True)
+        #             else:
+        #                 success_rate_dict["stage_{0}".format(s)].append(False)
+        #         else:
+        #             condition_object = task_dict["stage_{0}".format(s)]["condition_object"]
+        #             if condition_object != "no_object":
+        #                 if condition_object in existing_playground_element_names:
+        #                     end_condition_object_exists = True
+        #                     end_condition_object_has_existed = True
+        #                 else:
+        #                     end_condition_object_exists = False
                     
-                        if end_condition_object_exists is False and end_condition_object_has_existed is True:
-                            success_rate_dict["stage_{0}".format(s)].append(True)
-                        else:
-                            success_rate_dict["stage_{0}".format(s)].append(False)
-                    else:
-                        #Shoud only be possible for one stage activate landmarks
-                        active_list = []
-                        for element in playground.elements:
-                            if isinstance(element, CustomRewardOnActivation):
-                                active_list.append(element.active)
-                        if all(active_list):
-                            success_rate_dict["stage_{0}".format(s)].append(True)
-                        else:
-                            success_rate_dict["stage_{0}".format(s)].append(False)
+        #                 if end_condition_object_exists is False and end_condition_object_has_existed is True:
+        #                     success_rate_dict["stage_{0}".format(s)].append(True)
+        #                 else:
+        #                     success_rate_dict["stage_{0}".format(s)].append(False)
+        #             else:
+        #                 #Shoud only be possible for one stage activate landmarks
+        #                 active_list = []
+        #                 for element in playground.elements:
+        #                     if isinstance(element, CustomRewardOnActivation):
+        #                         active_list.append(element.active)
+        #                 if all(active_list):
+        #                     success_rate_dict["stage_{0}".format(s)].append(True)
+        #                 else:
+        #                     success_rate_dict["stage_{0}".format(s)].append(False)
         
         stage_success = []
         for stage in range(1, stage + 1):
@@ -98,7 +105,7 @@ def compute_reward(playground, task_dict, stage, agent_goal_dict, success_rate_d
             for s in range(stage+1, 4):
                 infos[agent.name]["success_stage_{0}".format(s)] = -1.0
     
-            rewards[agent.name] = 0.1 * reward
+            rewards[agent.name] = 0.1 * reward**2
 
         return rewards, infos, end_condition_object_has_existed
 
@@ -125,7 +132,7 @@ if __name__ == '__main__':
     engine = Engine(time_limit=config["timelimit"], playground=playground, screen=True)
 
     agent = BaseAgent(controller=Keyboard(), interactive=True, name="agent_0")
-    agent.add_sensor(TopdownSensor(agent.base_platform, max_range=150, resolution=128))
+    agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, max_range=160, resolution=128))
     playground.add_agent(agent)
 
     element_coordinates = [(20, 20), (20, 280), (280, 20), (280, 280), (60, 60), (60, 240), (240, 60), (240, 240),
@@ -138,7 +145,7 @@ if __name__ == '__main__':
         
     end_conditions = ["no_object", "object_exists"]
 
-    task_dict = base_env.sample_task_tree(3, end_conditions, possible_objects, element_coordinates, env_coordinates, 3, playground)
+    task_dict = base_env.sample_task_tree(3, end_conditions, possible_objects, element_coordinates, env_coordinates, 0, playground)
 
     success_rate_dict = {}
     for s in range(1, 4):
