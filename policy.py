@@ -348,6 +348,7 @@ class LSTM_PPO_Policy_Pop():
         values = storage["values"]
         advantages = storage["advantages"]
         returns = storage["returns"]
+        num_envs = storage["obs"].shape[1]
         num_steps = self.config["rollout_steps"] // (self.config["env_config"]["num_envs"] * self.config["num_workers"])
 
         
@@ -367,15 +368,14 @@ class LSTM_PPO_Policy_Pop():
             b_messages_in = b_messages_in.to(device)
 
         print(self.agent.actor_logstd)
-        num_workes_per_agent = (self.config["num_workers"] // self.config["env_config"]["num_agents"] * 2)
-        assert (self.config["env_config"]["num_envs"] * num_workes_per_agent % self.config["num_minibatches"] == 0)
-        envsperbatch = (self.config["env_config"]["num_envs"] * num_workes_per_agent) // self.config["num_minibatches"]
-        envinds = np.arange(self.config["env_config"]["num_envs"] * num_workes_per_agent)
-        flatinds = np.arange(self.config["batch_size"]).reshape(num_steps, self.config["env_config"]["num_envs"] * num_workes_per_agent)
+        assert (num_envs % self.config["num_minibatches"] == 0)
+        envsperbatch = num_envs // self.config["num_minibatches"]
+        envinds = np.arange(num_envs)
+        flatinds = np.arange(self.config["batch_size"]).reshape(num_steps, num_envs)
         clipfracs = []
         for epoch in range(self.config["update_epochs"]):
             np.random.shuffle(envinds)
-            for start in range(0, self.config["env_config"]["num_envs"] * num_workes_per_agent, envsperbatch):
+            for start in range(0, num_envs, envsperbatch):
                 end = start + envsperbatch
                 mbenvinds = envinds[start:end]
                 mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index

@@ -161,6 +161,7 @@ def build_storage_from_batch_pop(batch, config):
     achieved_goal = {}
     achieved_goal_success = {}
     next_contact = {}
+    stage_success_info = {}
     for a in range(config["env_config"]["num_agents"]):
         agent = "agent_{0}".format(a)
         storage_out[agent] = {}
@@ -168,7 +169,6 @@ def build_storage_from_batch_pop(batch, config):
         for i in range(len(batch)):
             if agent in batch[i][0].keys():
                 agent_batch.append(batch[i])
-
         storage_out[agent]["obs"] = torch.cat([agent_batch[i][0][agent]["obs"] for i in range(len(agent_batch))], dim=1)
         storage_out[agent]["dones"] = torch.cat([agent_batch[i][0][agent]["dones"] for i in range(len(agent_batch))], dim=1)
         storage_out[agent]["next_lstm_state"] = (torch.cat([agent_batch[i][0][agent]["next_lstm_state"][0] for i in range(len(agent_batch))], dim=1),
@@ -191,33 +191,24 @@ def build_storage_from_batch_pop(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([agent_batch[i][5][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([agent_batch[i][6][agent] for i in range(len(agent_batch))], dim=1)
 
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            stage_success_info[agent] = {}
+            for s in range(1, 4):
+                num_stage_sampled = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(agent_batch))])
+                num_stage_success = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(agent_batch))])
+                stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
+
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             next_messages[agent] = torch.cat([agent_batch[i][7][agent] for i in range(len(agent_batch))], dim=1)
         
     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
+        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
     else:
-        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact
-        
+        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
+    
     
 
-def reset_storage(storage, config, env):
-    """Reset the storage dict to all zeros. LSTM state is not reset across epochs!!"""
-    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_agents"])
-    num_envs = config["env_config"]["num_envs"]
-    device = config["device"]
 
-    for agent in storage.keys():
-        for key in storage[agent].keys():
-            if key in ["obs"]:
-                storage[agent][key] = torch.zeros((num_steps, num_envs) + env.observation_space.shape).to(device)
-            elif key in ["dones", "rewards", "values", "logprobs"]:
-                storage[agent][key] = torch.zeros((num_steps, num_envs)).to(device)
-            elif key in ["actions"]:
-                storage[agent][key] = torch.zeros((num_steps, num_envs) + env.action_space.shape).to(device)
-            else:
-                continue
-    return storage
 
 def move_tensors_to_cpu(inputs_list):
     for input, idx in zip(inputs_list, range(len(inputs_list))):
