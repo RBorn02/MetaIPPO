@@ -420,7 +420,7 @@ if __name__ == "__main__":
         best_average_reward = {}
         average_success_rate = {}
         best_average_success_rate = {}
-        successes = []
+        successes = {}
         stages_successes = {}
         stages_sampled = {}
         stages_rolling_success_rate = {}
