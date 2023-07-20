@@ -538,7 +538,7 @@ if __name__ == "__main__":
                             completed_episodes["agent_{0}".format(a)].append(torch.sum(torch.cat((storage["agent_{0}".format(a)]["dones"][1:].cpu(),
                                                                                                    next_dones["agent_{0}".format(a)]), dim=0)))
                             rewards["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
-                            successes
+                            successes["agent_{0}".format(a)].append(success_rate["agent_{0}".format(a)])
                             
                             if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
                                 for s in range(1, 4):
@@ -551,11 +551,12 @@ if __name__ == "__main__":
                             total_completed = {}
                             total_reward = {}
                             total_stage_successes = {}
+                            total_successes = {}
 
                             for a in range(config["env_config"]["num_agents"]):
                                 total_completed["agent_{0}".format(a)] = sum(completed_episodes["agent_{0}".format(a)][-update_ratio:])
                                 total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
-                                successes["agent_{0}".format(a)] = sum(success_rate["agent_{0}".format(a)][-update_ratio:])
+                                total_successes["agent_{0}".format(a)] = sum(successes["agent_{0}".format(a)][-update_ratio:])
 
                                 if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
                                     total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
@@ -563,7 +564,7 @@ if __name__ == "__main__":
 
                             training_info[update] = print_info(storage, total_completed, total_reward, total_stage_successes,
                                                                 stages_sampled, update, average_reward, best_average_reward,
-                                                                average_success_rate, best_average_success_rate, successes,
+                                                                average_success_rate, best_average_success_rate, total_successes,
                                                                 goal_line, goal_line_success, stages_rolling_success_rate, config)
                             
 
