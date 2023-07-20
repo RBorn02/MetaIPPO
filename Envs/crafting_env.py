@@ -34,6 +34,7 @@ class Diamond(GemElement):
             texture=texture,
             graspable=True,
             movable=True,
+            traverseable=True,
             mass=1,
             name=name,
             **kwargs
@@ -53,6 +54,7 @@ class Chest(ActivableByGem):
             texture=texture,
             movable=movable,
             graspable=graspable,
+            traverseable=True,
             mass=1,
             name=name,
             **kwargs
@@ -155,6 +157,7 @@ class LemonDispenser(ActivableElement):
             texture=texture,
             movable=True,
             graspable=True,
+            traverseable=True,
             mass=1,
             name=name,
             **kwargs
@@ -192,6 +195,7 @@ class Lemon(ContactElement):
             texture=texture,
             movable=True,
             graspable=True,
+            traverseable=True,
             mass=1,
             name=name,
             **kwargs
@@ -495,19 +499,14 @@ class CraftingEnv(MultiAgentEnv):
 
     def spawn_agents(self, element_coordinates):
         sample_pos_agents = random.sample(element_coordinates, self.num_agents)
-        element_coordinates.remove(sample_pos_agents[0])
-        element_coordinates.remove(sample_pos_agents[1])
-
-        agent_sampler_chest = CoordinateSampler(
-            sample_pos_agents[0], area_shape="rectangle", size=(20, 40)
-        )
-        agent_sampler_diamond = CoordinateSampler(
-            sample_pos_agents[1], area_shape="rectangle", size=(20, 40)
-        )
+        possible_agent_samplers = []
+        for i in range(self.num_agents):
+            element_coordinates.remove(sample_pos_agents[i])
+            agent_sampler = CoordinateSampler(sample_pos_agents[i], area_shape="rectangle", size=(20, 40))
+            possible_agent_samplers.append(agent_sampler)
 
         
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
-        possible_agent_samplers = [agent_sampler_chest, agent_sampler_diamond]
         agent_dict = {}
         
         self.agent_goal_dict = {}
