@@ -5,6 +5,7 @@ import multiprocessing as mp
 import numpy as np
 from distutils.util import strtobool
 import time
+import datetime
 import traceback
 import wandb
 
@@ -383,7 +384,7 @@ if __name__ == "__main__":
 
         #Tracking
         run_name = "PPO_{0}_{1}_{2}_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
-                                                config["env_config"]["coop_chance"], time.time())
+                                                config["env_config"]["coop_chance"], datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
         if not config["debug"]:
             wandb.init(
                 project="MetaIPPO",
@@ -415,6 +416,7 @@ if __name__ == "__main__":
         best_average_reward = {}
         average_success_rate = {}
         best_average_success_rate = {}
+        successes = {}
         stages_successes = {}
         stages_sampled = {}
         stages_rolling_success_rate = {}
@@ -425,6 +427,7 @@ if __name__ == "__main__":
             average_reward["agent_{0}".format(a)] = []
             best_average_reward["agent_{0}".format(a)] = 0.0
             average_success_rate["agent_{0}".format(a)] = []
+            successes["agent_{0}".format(a)] = []
             best_average_success_rate["agent_{0}".format(a)] = 0.0
             stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
             stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
@@ -505,27 +508,34 @@ if __name__ == "__main__":
                             completed_episodes["agent_{0}".format(a)].append(torch.sum(torch.cat((storage["agent_{0}".format(a)]["dones"][1:].cpu(),
                                                                                                    next_dones["agent_{0}".format(a)]), dim=0)))
                             rewards["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
+                            successes["agent_{0}".format(a)].append(success_rate["agent_{0}".format(a)])
                             
-                            for s in range(1, 4):
-                                stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
-                                                            stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
-                                stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
-                                                            stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
+                            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                                for s in range(1, 4):
+                                    stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                                stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
+                                    stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                                stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
 
                         if update % update_ratio == 0:
                             total_completed = {}
                             total_reward = {}
                             total_stage_successes = {}
+                            total_successes = {}
 
                             for a in range(config["env_config"]["num_agents"]):
                                 total_completed["agent_{0}".format(a)] = sum(completed_episodes["agent_{0}".format(a)][-update_ratio:])
                                 total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
                                 total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
                                                                                 for s in range(1, 4)}
-
+                                
+                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                                    total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
+                                                                                for s in range(1, 4)}
+                                    
                             training_info[update] = print_info(storage, total_completed, total_reward, total_stage_successes,
                                                                 stages_sampled, update, average_reward, best_average_reward,
-                                                                average_success_rate, best_average_success_rate, success_rate,
+                                                                average_success_rate, best_average_success_rate, total_successes,
                                                                 goal_line, goal_line_success, stages_rolling_success_rate, config)
                             
 
