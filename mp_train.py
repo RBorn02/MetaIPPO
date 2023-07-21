@@ -526,8 +526,7 @@ if __name__ == "__main__":
                             for a in range(config["env_config"]["num_agents"]):
                                 total_completed["agent_{0}".format(a)] = sum(completed_episodes["agent_{0}".format(a)][-update_ratio:])
                                 total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
-                                total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
-                                                                                for s in range(1, 4)}
+                                total_successes["agent_{0}".format(a)] = sum(successes["agent_{0}".format(a)][-update_ratio:])
                                 
                                 if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
                                     total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
