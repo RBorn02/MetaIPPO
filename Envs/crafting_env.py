@@ -284,7 +284,7 @@ class CraftingEnv(MultiAgentEnv):
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
-        self.playground = GridRooms(size=(self.playground_height, self.playground_width), room_layout=(2, 2), 
+        self.playground = GridRooms(size=(self.playground_height, self.playground_width), room_layout=(1, 1), 
                                     random_doorstep_position=False, doorstep_size=80)
         self.agent_ids = set()
         self.single_reward = config["single_reward"]
@@ -577,7 +577,7 @@ class CraftingEnv(MultiAgentEnv):
         end_condition_object_color = end_condition_object[1]
 
         if end_condition == "object_exists":
-            end_condition_object = Chest(physical_shape=end_condition_object_shape, radius=10, 
+            end_condition_object = Chest(physical_shape=end_condition_object_shape, radius=6, 
                                         texture=ColorTexture(color=end_condition_object_color, size=10), 
                                         name="end_condition_object", condition_obj=True, temporary=True)
         else:
@@ -658,7 +658,7 @@ class CraftingEnv(MultiAgentEnv):
                     object_color = object_type[1]
                     
 
-                    chest_object = Chest(physical_shape=object_shape, radius=10, 
+                    chest_object = Chest(physical_shape=object_shape, radius=6, 
                                         texture=ColorTexture(color=object_color, size=10),
                                         out_reward=object, 
                                         name="chest_object_{0}".format(stage),
@@ -670,7 +670,7 @@ class CraftingEnv(MultiAgentEnv):
                     object_color = object_type[1]
                     
 
-                    diamond_object = Diamond(chest_object, physical_shape=object_shape, radius=10, 
+                    diamond_object = Diamond(chest_object, physical_shape=object_shape, radius=6, 
                                             texture=ColorTexture(color=object_color, size=10), 
                                             name="diamond_object_{0}".format(stage),
                                             temporary=True)
@@ -690,8 +690,8 @@ class CraftingEnv(MultiAgentEnv):
         elif stage_task_type == "dropoff":
             assert task_out_objects[0] == "no_object"
 
-            dropoff = Chest(physical_shape="triangle", radius=15,
-                            texture=MultipleCenteredStripesTexture(color_1=[200, 200, 200], color_2=[20, 20, 20], size=15, n_stripes=9),
+            dropoff = Chest(physical_shape="triangle", radius=10,
+                            texture=ColorTexture(color=[140, 140, 140], size=15),
                             condition_obj=False, movable=False, graspable=False,
                             dropoff=True,
                             name="dropoff",
@@ -702,7 +702,7 @@ class CraftingEnv(MultiAgentEnv):
             object_shape = object[0]
             object_color = object[1]
 
-            dropoff_diamond = Diamond(dropoff, physical_shape=object_shape, radius=10,
+            dropoff_diamond = Diamond(dropoff, physical_shape=object_shape, radius=6,
                                     texture=ColorTexture(color=object_color, size=10),
                                     name="dropoff_diamond_{0}".format(stage),
                                     temporary=True)
@@ -713,20 +713,25 @@ class CraftingEnv(MultiAgentEnv):
             condition_obj = dropoff
         
         elif stage_task_type == "activate_landmarks":
-            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
+            possible_agent_names = []
+            for a in range(self.num_agents):
+                possible_agent_names.append("agent_{0}".format(a))
+            if len(possible_agent_names) < 2:
+                possible_agent_names.append("agent_0")
+                
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
             second_agent = possible_agent_names[0]
 
 
-            landmark1 = CustomRewardOnActivation(agent_name=first_agent, radius=15,
-                                                texture=MultipleCenteredStripesTexture(color_1=[255, 0, 0], color_2=[255, 255, 255], size=15, n_stripes=3),
+            landmark1 = CustomRewardOnActivation(agent_name=first_agent, radius=10,
+                                                texture=ColorTexture(color=[200,0, 0], size=15),
                                                 out_reward=task_out_objects[0],
                                                 name="landmark0",
                                                 temporary=True)
 
-            landmark2 = CustomRewardOnActivation(agent_name=second_agent, radius=15,
-                                                texture=MultipleCenteredStripesTexture(color_1=[0, 255, 0], color_2=[255, 255, 255], size=15, n_stripes=3),
+            landmark2 = CustomRewardOnActivation(agent_name=second_agent, radius=10,
+                                                texture=ColorTexture(color=[200, 0, 0], size=15),
                                                 out_reward=task_out_objects[1] if len(task_out_objects) > 1 else None,
                                                 name="landmark1",
                                                 temporary=True)
@@ -748,7 +753,12 @@ class CraftingEnv(MultiAgentEnv):
             condition_obj = landmark1
 
         elif stage_task_type == "lemon_hunt":
-            possible_agent_names = ["agent_0", "agent_1"] #TODO: Make more general
+            possible_agent_names = []
+            for a in range(self.num_agents):
+                possible_agent_names.append("agent_{0}".format(a))
+            if len(possible_agent_names) < 2:
+                possible_agent_names.append("agent_0")
+
             lemon_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(lemon_agent)
             agent_name = possible_agent_names[0]
@@ -759,7 +769,7 @@ class CraftingEnv(MultiAgentEnv):
             object_color = object[1]
 
             lemon = Lemon(physical_shape=object_shape, radius=10,
-                            texture=ColorTexture(color=[255, 255, 0], size=10),
+                            texture=object_color,
                             name="lemon_{0}".format(stage), agent_name=lemon_agent,
                             temporary=True)
             
@@ -768,7 +778,7 @@ class CraftingEnv(MultiAgentEnv):
             object_shape = object[0]
             object_color = object[1]
 
-            lemon_dispenser = LemonDispenser(agent_name=agent_name, radius=10,
+            lemon_dispenser = LemonDispenser(agent_name=agent_name, radius=6,
                                                                 texture=ColorTexture(color=object_color, size=10),
                                                                 physical_shape=object_shape,
                                                                 out_reward=lemon,
@@ -781,8 +791,8 @@ class CraftingEnv(MultiAgentEnv):
         
         else:
             assert task_out_objects[0] != "no_object"
-            in_out_machine = InputOutputMachine(physical_shape="rectangle", radius=15,
-                            texture=MultipleCenteredStripesTexture(color_1=[100, 100, 100], color_2=[255, 255, 255], size=15, n_stripes=9),
+            in_out_machine = InputOutputMachine(physical_shape="rectangle", radius=10,
+                            texture=ColorTexture(color=[0, 200, 0], size=15),
                             condition_obj=True,
                             name="in_out_machine", reward=task_out_objects[0],
                             temporary=True)
@@ -792,7 +802,7 @@ class CraftingEnv(MultiAgentEnv):
             object_shape = object[0]
             object_color = object[1]
         
-            in_out_machine_diamond = Diamond(in_out_machine, physical_shape=object_shape, radius=10,
+            in_out_machine_diamond = Diamond(in_out_machine, physical_shape=object_shape, radius=6,
                                     texture=ColorTexture(color=object_color, size=10),
                                     name="in_out_machine_diamond_{0}".format(stage),
                                     temporary=True)
@@ -876,7 +886,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import cv2
     config = {"num_landmarks": 1,
-              "num_agents": 2,
+              "num_agents": 1,
               "timelimit": 10000,
               "coop_chance":0.0,
               "message_length": 3,
@@ -889,7 +899,8 @@ if __name__ == "__main__":
               "single_reward": False,
               "random_assign": True,
               "min_prob": 0.025,
-              "max_prob": 0.95,}
+              "max_prob": 0.95,
+              "agent_resolution": 128}
     env = CraftingEnv(config)
     print(env.action_space.sample())
     obs = env.reset()
@@ -906,7 +917,7 @@ if __name__ == "__main__":
         cv2.imshow('agent', img)
         cv2.waitKey(10)
 
-        for e in range(2000):
+        for e in range(4):
             #actions = {"agent_0": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
             #                       "message_action_space": torch.Tensor(env.action_space["message_action_space"].sample())},
             #           "agent_1": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
