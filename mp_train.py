@@ -123,6 +123,8 @@ parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True
                     help="Toggles whether or not to use contact information as input to the LSTM")
 parser.add_argument("--one_hot_message", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use one hot encoding for the message")
+parser.add_argument("--time_till_end", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Toggles whether or not to use time till end as input to the LSTM (Only Crafting Env)")
 
 
 
@@ -169,9 +171,9 @@ def rollout(pid, policy_dict, train_queue, done, config):
         storage = build_storage(config, env)
 
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-            next_obs, next_messages_in, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+            next_obs, next_messages_in, next_contact, next_time_till_end, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
         else:
-            next_obs, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+            next_obs, next_contact, next_time_till_end, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
 
         next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])).to(device) for a in range(config["env_config"]["num_agents"])}
         last_actions = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["actions"][0].to(device) for a in range(config["env_config"]["num_agents"])}
@@ -202,7 +204,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
                         move_tensors_to_gpu([storage, next_obs, next_messages_in, next_dones, success_rate, achieved_goal,
                                             achieved_goal_success, next_contact, last_actions, last_rewards,
-                                            stages_success_info])
+                                            stages_success_info, ])
                     else:
                         move_tensors_to_gpu([storage, next_obs, next_dones, success_rate, achieved_goal,
                                             achieved_goal_success, next_contact, last_actions, last_rewards,
@@ -213,12 +215,14 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     next_agent_dones = next_dones["agent_{0}".format(a)].to(device)
                     next_agent_lstm_state = storage["agent_{0}".format(a)]["next_lstm_state"]
                     next_agent_contact = next_contact["agent_{0}".format(a)].to(device)
+                    next_agent_time_till_end = next_time_till_end["agent_{0}".format(a)].to(device)
                     last_agent_actions = last_actions["agent_{0}".format(a)]
                     last_agent_rewards = last_rewards["agent_{0}".format(a)]
                     
                     storage["agent_{0}".format(a)]["obs"][rollout_step] = next_agent_obs
                     storage["agent_{0}".format(a)]["dones"][rollout_step] = next_agent_dones
                     storage["agent_{0}".format(a)]["contact"][rollout_step] = next_agent_contact
+                    storage["agent_{0}".format(a)]["time_till_end"][rollout_step] = next_agent_time_till_end
                     storage["agent_{0}".format(a)]["last_actions"][rollout_step] = last_agent_actions
                     storage["agent_{0}".format(a)]["last_rewards"][rollout_step] = last_agent_rewards
 
@@ -237,6 +241,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                                                                                     last_agent_actions,
                                                                                                                     last_agent_rewards.unsqueeze(dim=1),
                                                                                                                     next_agent_contact.transpose(0,1),
+                                                                                                                    next_agent_time_till_end.transpose(0,1),
                                                                                                                     next_agent_message_in.squeeze(dim=0))
                             
                         else:
@@ -246,7 +251,8 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                                                                                     next_agent_dones,
                                                                                                                     last_agent_actions,
                                                                                                                     last_agent_rewards.unsqueeze(dim=1),
-                                                                                                                    next_agent_contact.transpose(0,1))
+                                                                                                                    next_agent_contact.transpose(0,1),
+                                                                                                                    next_agent_time_till_end.transpose(0,1))
                     
                     storage["agent_{0}".format(a)]["values"][rollout_step] = value.transpose(0, 1)
                     storage["agent_{0}".format(a)]["actions"][rollout_step] = action
@@ -264,13 +270,13 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     input_dict["actions"] = actions.cpu()
                     input_dict["messages"] = messages.cpu()
 
-                    next_obs, next_messages_in, rewards, dones, next_contact, infos = env.step(input_dict)
+                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos = env.step(input_dict)
                 
                 else:
                     actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
                                     for a in range(config["env_config"]["num_agents"])], dim=1)
     
-                    next_obs, rewards, dones, next_contact, infos = env.step(actions.cpu())
+                    next_obs, rewards, dones, next_contact, next_time_till_end, infos = env.step(actions.cpu())
 
                 
                 #Handle the dones and convert the bools to binary tensors
@@ -306,14 +312,16 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     if dones["__all__"][e]:
                         for a in range(config["env_config"]["num_agents"]):
                             if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-                                reset_obs, reset_messages, reset_contact, _ = env.reset(e)
+                                reset_obs, reset_messages, reset_contact, reset_time_till_end, _ = env.reset(e)
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                                 next_messages_in["agent_{0}".format(a)][0][e] = reset_messages["agent_{0}".format(a)].to(device)
                                 next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
+                                next_time_till_end["agent_{0}".format(a)][0][e] = reset_time_till_end["agent_{0}".format(a)].to(device)
                             else:
-                                reset_obs, reset_contact, _ = env.reset(e)
+                                reset_obs, reset_contact, reset_time_till_end, _ = env.reset(e)
                                 next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                                 next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
+                                next_time_till_end["agent_{0}".format(a)][0][e] = reset_time_till_end["agent_{0}".format(a)].to(device)
 
                 
                 #Hold training for the worker if enough data is collected and put it into the training queue
@@ -323,20 +331,20 @@ def rollout(pid, policy_dict, train_queue, done, config):
                         #Move tensors to cpu to share them across workers
                         if config["device"] == "cuda":
                             move_tensors_to_cpu([storage, next_obs, next_dones, success_rate, achieved_goal,
-                                                achieved_goal_success, next_contact, next_messages_in,
-                                                stages_success_info])
+                                                achieved_goal_success, next_contact, next_time_till_end,
+                                                stages_success_info, next_messages_in,])
                         
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
-                                         achieved_goal_success, next_contact, next_messages_in,
-                                         stages_success_info), block=True)
+                                         achieved_goal_success, next_contact, next_time_till_end,
+                                         stages_success_info, next_messages_in,), block=True)
                     else:
 
                         if config["device"] == "cuda":
                             move_tensors_to_cpu([storage, next_obs, next_dones, success_rate, achieved_goal,
-                                                    achieved_goal_success, next_contact, stages_success_info])
+                                                    achieved_goal_success, next_contact, next_time_till_end, stages_success_info])
                         
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
-                                         achieved_goal_success, next_contact, stages_success_info), block=True)
+                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info), block=True)
                     done[pid] = 1
                     rollout_step = 0
                     #Last lstm state is the initial lstm state for the next rollout
@@ -461,10 +469,10 @@ if __name__ == "__main__":
                     start = time.time()
 
                     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, stage_success_info = build_storage_from_batch(batch, config)
+                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
                     else:
-                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, stage_success_info = build_storage_from_batch(batch, config)
-            
+                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
+                    print(next_time_till_end)
                     #Compute the advantages for each policy
                     for a in range(config["env_config"]["num_agents"]):
                         advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
@@ -472,6 +480,7 @@ if __name__ == "__main__":
                                                                                 next_obs["agent_{0}".format(a)],
                                                                                 next_dones["agent_{0}".format(a)],
                                                                                 next_contact["agent_{0}".format(a)],
+                                                                                next_time_till_end["agent_{0}".format(a)],
                                                                                 next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] in 
                                                                                 ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"] else None,
                                                                                 )

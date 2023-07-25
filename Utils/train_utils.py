@@ -20,8 +20,6 @@ def build_storage(config, env):
         storage["agent_{0}".format(a)] = {
                     "obs": torch.zeros((num_steps, num_envs) + env.observation_space.shape).to(device),
                     "dones":torch.zeros((num_steps, num_envs)).to(device),
-                    #"is_training":torch.zeros((1, num_envs)).to(device),
-                    #"collected_env_steps":torch.zeros((num_envs)).to(device),
                     "next_lstm_state":(
                                         torch.zeros(num_layers, num_envs, hidden_size).to(device),
                                         torch.zeros(num_layers, num_envs, hidden_size).to(device),
@@ -34,6 +32,7 @@ def build_storage(config, env):
                     "values":torch.zeros((num_steps, num_envs)).to(device),
                     "logprobs":torch.zeros((num_steps, num_envs)).to(device),
                     "contact":torch.zeros((num_steps, num_envs)).to(device),
+                    "time_till_end":torch.zeros((num_steps, num_envs)).to(device),
                     }
               
     return storage
@@ -67,6 +66,7 @@ def build_storage_pop(config, env, agent_ids):
                     "values":torch.zeros((num_steps, num_envs)).to(device),
                     "logprobs":torch.zeros((num_steps, num_envs)).to(device),
                     "contact":torch.zeros((num_steps, num_envs)).to(device),
+                    "time_till_end":torch.zeros((num_steps, num_envs)).to(device),
                     }
               
     return storage
@@ -109,6 +109,7 @@ def build_storage_from_batch(batch, config):
     achieved_goal = {}
     achieved_goal_success = {}
     next_contact = {}
+    next_time_till_end = {}
     stage_success_info = {}
     for a in range(config["env_config"]["num_agents"]):
         agent = "agent_{0}".format(a)
@@ -127,6 +128,7 @@ def build_storage_from_batch(batch, config):
         storage_out[agent]["values"] = torch.cat([batch[i][0][agent]["values"] for i in range(len(batch))], dim=1)
         storage_out[agent]["logprobs"] = torch.cat([batch[i][0][agent]["logprobs"] for i in range(len(batch))], dim=1)
         storage_out[agent]["contact"] = torch.cat([batch[i][0][agent]["contact"] for i in range(len(batch))], dim=1)
+        storage_out[agent]["time_till_end"] = torch.cat([batch[i][0][agent]["time_till_end"] for i in range(len(batch))], dim=1)
 
         next_obs[agent] = torch.cat([batch[i][1][agent] for i in range(len(batch))], dim=1)
         next_dones[agent] = torch.cat([batch[i][2][agent] for i in range(len(batch))], dim=1)
@@ -134,21 +136,22 @@ def build_storage_from_batch(batch, config):
         achieved_goal[agent] = torch.sum(torch.cat([batch[i][4][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         achieved_goal_success[agent] = torch.sum(torch.cat([batch[i][5][agent].unsqueeze(dim=0) for i in range(len(batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
+        next_time_till_end[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
 
         if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
             stage_success_info[agent] = {}
             for s in range(1, 4):
-                num_stage_sampled = sum([batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
-                num_stage_success = sum([batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(batch))])
+                num_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
+                num_stage_success = sum([batch[i][8][agent]["stage_{0}".format(s)][1] for i in range(len(batch))])
                 stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
     
         if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-            next_messages[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
+            next_messages[agent] = torch.cat([batch[i][9][agent] for i in range(len(batch))], dim=1)
     
     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
+        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
     else:
-        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
+        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
     
 
 def build_storage_from_batch_pop(batch, config):
@@ -312,6 +315,7 @@ def build_config(args):
         config["model_config"]["channel_3"] = args.channel_3
         config["model_config"]["use_last_action_reward"] = args.use_last_action_reward
         config["model_config"]["contact"] = args.contact
+        config["model_config"]["time_till_end"] = args.time_till_end
         config["model_config"]["one_hot_message"] = args.one_hot_message
         config["model_config"]["actor_hidden_size"] = args.actor_hidden_size
         config["model_config"]["critic_hidden_size"] = args.critic_hidden_size
@@ -437,9 +441,9 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
     infos = []
 
     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-        next_obs, next_messages_in, next_contact, _ = env.reset(0)
+        next_obs, next_messages_in, next_contact, next_time_till_end, _ = env.reset(0)
     else:
-        next_obs, next_contact, _ = env.reset(0)
+        next_obs, next_contact, next_time_till_end, _ = env.reset(0)
 
     next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])) for a in range(config["env_config"]["num_agents"])}
     past_actions = torch.zeros((num_steps, config["env_config"]["num_agents"]) + env.action_space_shape)
@@ -464,6 +468,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
                         past_actions[s, a].unsqueeze(dim=0),
                         past_rewards[s, a].unsqueeze(dim=0).reshape(-1, 1),
                         next_contact["agent_{0}".format(a)],
+                        next_time_till_end["agent_{0}".format(a)],
                         )
                 else:
                     actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
@@ -473,6 +478,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
                         past_actions[s, a].unsqueeze(dim=0),
                         past_rewards[s, a].unsqueeze(dim=0).reshape(-1, 1),
                         next_contact["agent_{0}".format(a)],
+                        next_time_till_end["agent_{0}".format(a)],
                         )
                 if s < num_steps - 1:
                     past_actions[s + 1, a] = actions[:,a].squeeze(dim=0)
@@ -485,9 +491,9 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
             message_actions = actions[:,:, env.movement_shape[0]:]
             input_dict["actions"] = movement_actions
             input_dict["messages"] = message_actions
-            next_obs, next_messages_in, rewards ,dones, next_contact, info = env.step(input_dict)
+            next_obs, next_messages_in, rewards ,dones, next_contact, next_time_till_end, info = env.step(input_dict)
         else:
-            next_obs, rewards, dones, next_contact, info = env.step(actions)
+            next_obs, rewards, dones, next_contact, next_time_till_end, info = env.step(actions)
         next_dones = handle_dones(dones)
         for a in range(config["env_config"]["num_agents"]):
             if s < num_steps - 1:
@@ -496,9 +502,9 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
         infos.append(info)
         if dones["__all__"]:
             if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-                next_obs, next_messages_in, next_contact, _ = env.reset(0)
+                next_obs, next_messages_in, next_contact, next_time_till_end, _ = env.reset(0)
             else:
-                next_obs, next_contact, _ = env.reset(0)
+                next_obs, next_contact, next_time_till_end, _ = env.reset(0)
     
     #Create video from frames using different library than opencv
     if test:

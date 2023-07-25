@@ -19,6 +19,8 @@ class LSTMAgent(nn.Module):
 
         if self.model_config["contact"]:
             lstm_in_size += 1
+        if self.model_config["time_till_end"]:
+            lstm_in_size += 1
 
         self.cnn = nn.Sequential(
             self.layer_init(nn.Conv2d(self.observation_shape[2], self.model_config["channel_1"], 8, stride=4)),
@@ -63,7 +65,7 @@ class LSTMAgent(nn.Module):
         #self.critic_in = self.layer_init(nn.Linear(self.model_config["lstm_hidden_size"], 128), std=1)
         #self.critic_out = self.layer_init(nn.Linear(128, 1), std=1)
 
-    def get_states(self, x, lstm_state, done, last_action, last_reward, contact):
+    def get_states(self, x, lstm_state, done, last_action, last_reward, contact, tim_till_end):
         if len(x.shape) == 5:
             hidden = self.cnn(x.squeeze().transpose(1, 3))
         else:
@@ -73,6 +75,8 @@ class LSTMAgent(nn.Module):
             hidden = torch.cat([hidden, last_action, last_reward], dim=1)
         if self.model_config["contact"]:
             hidden = torch.cat([hidden, contact], dim=1)
+        if self.model_config["time_till_end"]:
+            hidden = torch.cat([hidden, tim_till_end], dim=1)
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
         hidden = hidden.reshape((-1, batch_size, self.lstm.input_size))
@@ -90,12 +94,12 @@ class LSTMAgent(nn.Module):
         new_hidden = torch.flatten(torch.cat(new_hidden), 0, 1)
         return new_hidden, lstm_state
     
-    def get_value(self, x, lstm_state, done, last_action, last_reward, contact):
-        hidden, _ = self.get_states(x, lstm_state, done, last_action, last_reward, contact)
+    def get_value(self, x, lstm_state, done, last_action, last_reward, contact, time_till_end):
+        hidden, _ = self.get_states(x, lstm_state, done, last_action, last_reward, contact, time_till_end)
         return self.critic(hidden)
 
-    def get_action_and_value(self, x, lstm_state, done, last_action, last_reward, contact, action=None):
-        hidden, lstm_state = self.get_states(x, lstm_state, done, last_action, last_reward, contact)
+    def get_action_and_value(self, x, lstm_state, done, last_action, last_reward, contact, time_till_end, action=None):
+        hidden, lstm_state = self.get_states(x, lstm_state, done, last_action, last_reward, contact, time_till_end)
         action_mean = self.actor_mean(hidden)
         action_logstd = self.actor_logstd.expand_as(action_mean)
         action_std = torch.exp(action_logstd)
@@ -139,6 +143,9 @@ class CommsLSTMAgent(nn.Module):
         
         if self.model_config["contact"]:
             lstm_in_size += 1
+        
+        if self.model_config["time_till_end"]:
+            lstm_in_size += 1
 
         self.cnn = nn.Sequential(
             self.layer_init(nn.Conv2d(self.observation_shape[2], self.model_config["channel_1"], 8, stride=4)),
@@ -179,7 +186,7 @@ class CommsLSTMAgent(nn.Module):
         self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(self.movement_shape))) 
 
 
-    def get_states(self, x, lstm_state, done, message, last_action, last_reward, contact):
+    def get_states(self, x, lstm_state, done, message, last_action, last_reward, contact, tim_till_end):
         if len(x.shape) == 5:
             hidden = self.cnn(x.squeeze().transpose(1, 3))
         else:
@@ -198,6 +205,9 @@ class CommsLSTMAgent(nn.Module):
 
         if self.model_config["contact"]:
             hidden = torch.cat([hidden, contact], dim=1)
+        
+        if self.model_config["time_till_end"]:
+            hidden = torch.cat([hidden, tim_till_end], dim=1)
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
         hidden = hidden.reshape((-1, batch_size, self.lstm.input_size))
@@ -215,11 +225,11 @@ class CommsLSTMAgent(nn.Module):
         new_hidden = torch.flatten(torch.cat(new_hidden), 0, 1)
         return new_hidden, lstm_state
     
-    def get_value(self, x, lstm_state, done, message, last_action, last_reward, contact):
-        hidden, _ = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact)
+    def get_value(self, x, lstm_state, done, message, last_action, last_reward, contact, time_till_end):
+        hidden, _ = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact, time_till_end)
         return self.critic(hidden)
 
-    def get_action_and_value(self, x, lstm_state, done, message, last_action, last_reward, contact, action=None):
+    def get_action_and_value(self, x, lstm_state, done, message, last_action, last_reward, contact, time_till_end ,action=None):
         hidden, lstm_state = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact)
         actions = self.actor_mean(hidden)
 

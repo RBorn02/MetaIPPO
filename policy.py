@@ -20,14 +20,14 @@ class LSTM_PPO_Policy():
         else:
             return self.agent.get_value(obs, lstm_state, dones, message, last_action, last_reward, contact)
     
-    def get_action_and_value(self, obs, lstm_state, done, last_action, last_reward, contact, message=None, action=None):
+    def get_action_and_value(self, obs, lstm_state, done, last_action, last_reward, contact, time_till_end, message=None, action=None):
         """Returns the action and value of the observation"""
         if message is None:
-            return self.agent.get_action_and_value(obs, lstm_state, done, last_action, last_reward, contact, action)
+            return self.agent.get_action_and_value(obs, lstm_state, done, last_action, last_reward, contact, time_till_end, action)
         else:
-            return self.agent.get_action_and_value(obs, lstm_state, done, message, last_action, last_reward, contact, action)
+            return self.agent.get_action_and_value(obs, lstm_state, done, message, last_action, last_reward, contact, time_till_end ,action)
         
-    def get_advantages(self, storage, next_obs, next_done, next_contact, next_message=None):
+    def get_advantages(self, storage, next_obs, next_done, next_contact, next_time_till_end, next_message=None):
         """Returns the advantage for the Policy"""
         device = self.config["device"]
         rewards = storage["rewards"].to(device)
@@ -39,6 +39,7 @@ class LSTM_PPO_Policy():
         next_obs = next_obs.to(device)
         next_done = next_done.to(device)
         next_contact = next_contact.to(device)
+        next_time_till_end = next_time_till_end.to(device)
         if next_message is not None:
             next_message = next_message.to(device)
         
@@ -55,6 +56,7 @@ class LSTM_PPO_Policy():
                     prev_actions,
                     prev_rewards,
                     next_contact.transpose(0,1),
+                    next_time_till_end.transpose(0,1),
                 ).reshape(1, -1)
 
             else:
@@ -66,6 +68,7 @@ class LSTM_PPO_Policy():
                     prev_actions,
                     prev_rewards,
                     next_contact.transpose(0,1),
+                    next_time_till_end.transpose(0,1),
                 ).reshape(1, -1)
 
             if self.config["gae"]:
@@ -114,6 +117,7 @@ class LSTM_PPO_Policy():
         prev_actions = storage["last_actions"]
         prev_rewards = storage["last_rewards"]
         contact = storage["contact"]
+        time_till_end = storage["time_till_end"]
         logprobs = storage["logprobs"]
         dones = storage["dones"]
         values = storage["values"]
@@ -127,6 +131,7 @@ class LSTM_PPO_Policy():
         b_actions = actions.reshape((-1,) + self.single_action_shape).to(device)
         b_prev_actions = prev_actions.reshape((-1,) + self.single_action_shape).to(device)
         b_contact = contact.reshape(-1, 1).to(device)
+        b_time_till_end = time_till_end.reshape(-1, 1).to(device)
         b_prev_rewards = prev_rewards.reshape(-1, 1).to(device)
         b_advantages = advantages.reshape(-1).to(device)
         b_dones = dones.reshape(-1).to(device)
@@ -160,6 +165,7 @@ class LSTM_PPO_Policy():
                         b_prev_actions[mb_inds],
                         b_prev_rewards[mb_inds],
                         b_contact[mb_inds],
+                        b_time_till_end[mb_inds],
                         b_actions[mb_inds],
                     )
                 else:
@@ -170,6 +176,7 @@ class LSTM_PPO_Policy():
                         b_prev_actions[mb_inds],
                         b_prev_rewards[mb_inds],
                         b_contact[mb_inds],
+                        b_time_till_end[mb_inds],
                         b_actions[mb_inds],
                     )
 
@@ -258,7 +265,7 @@ class LSTM_PPO_Policy_Pop():
         else:
             return self.agent.get_action_and_value(obs, lstm_state, done, message, last_action, last_reward, contact, action)
         
-    def get_advantages(self, storage, next_obs, next_done, next_contact, next_message=None):
+    def get_advantages(self, storage, next_obs, next_done, next_contact, next_time_till_end, next_message=None):
         """Returns the advantage for the Policy"""
         device = self.config["device"]
         rewards = storage["rewards"].to(device)
@@ -270,6 +277,7 @@ class LSTM_PPO_Policy_Pop():
         next_obs = next_obs.to(device)
         next_done = next_done.to(device)
         next_contact = next_contact.to(device)
+        next_time_till_end = next_time_till_end.to(device)
         if next_message is not None:
             next_message = next_message.to(device)
         
@@ -286,6 +294,7 @@ class LSTM_PPO_Policy_Pop():
                     prev_actions,
                     prev_rewards,
                     next_contact.transpose(0,1),
+                    next_time_till_end.transpose(0,1),
                 ).reshape(1, -1)
 
             else:
@@ -297,6 +306,7 @@ class LSTM_PPO_Policy_Pop():
                     prev_actions,
                     prev_rewards,
                     next_contact.transpose(0,1),
+                    next_time_till_end.transpose(0,1),
                 ).reshape(1, -1)
 
             if self.config["gae"]:

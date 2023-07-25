@@ -49,6 +49,7 @@ class EnvironmentHandler():
         infos_dict = {}
         message_dict = {}
         landmark_contact_dict = {}
+        time_till_end_dict = {}
         for a in range(self.env_config["num_agents"]):
             obs = torch.zeros((1, self.env_config["num_envs"]) + self.observation_space.shape)
             rewards = torch.zeros(1, (self.env_config["num_envs"]))
@@ -61,6 +62,7 @@ class EnvironmentHandler():
             stage_one_successes = torch.zeros((1, self.env_config["num_envs"]))
             stage_two_sucecsses = torch.zeros((1, self.env_config["num_envs"]))
             stage_three_successes = torch.zeros((1, self.env_config["num_envs"]))
+            time_till_end = torch.zeros((1, self.env_config["num_envs"]))
 
             for env in obs_in.keys():
                 #print(env)
@@ -83,12 +85,15 @@ class EnvironmentHandler():
                         stage_one_successes[0][env] = info[env]["agent_{0}".format(a)]["success_stage_1"]
                         stage_two_sucecsses[0][env] = info[env]["agent_{0}".format(a)]["success_stage_2"]
                         stage_three_successes[0][env] = info[env]["agent_{0}".format(a)]["success_stage_3"]
+                        time_till_end[0][env] = info[env]["agent_{0}".format(a)]["time_till_end"]
 
             obs_dict["agent_{0}".format(a)] = obs
             message_dict["agent_{0}".format(a)] = message
             rewards_dict["agent_{0}".format(a)] = rewards
             dones_dict["agent_{0}".format(a)] = dones
             landmark_contact_dict["agent_{0}".format(a)] = landmark_contact
+            time_till_end_dict["agent_{0}".format(a)] = time_till_end
+            
             infos_dict["agent_{0}".format(a)] = {"success": successes, "goal_line": goal_lines, "true_goal": true_goal}
             
             if "success_stage_1" in info[env]["agent_{0}".format(a)].keys():
@@ -99,9 +104,9 @@ class EnvironmentHandler():
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             
         if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, infos_dict
+            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end, infos_dict
         else:
-            return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, infos_dict
+            return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
     
 
     def reset_all(self, idx: List[int]) -> Tuple[Dict, Dict]:
@@ -110,6 +115,7 @@ class EnvironmentHandler():
         self.vector_env.poll()
         
         contact = {"agent_{0}".format(a): torch.zeros((1, self.env_config["num_envs"])) for a in range(self.env_config["num_agents"])}
+        time_till_end = {"agent_{0}".format(a): torch.ones((1, self.env_config["num_envs"])) for a in range(self.env_config["num_agents"])}
 
         if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
@@ -124,13 +130,14 @@ class EnvironmentHandler():
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
                 np.array([reset_obs[i]["agent_{0}".format(a)].copy() for i in range(self.env_config["num_envs"])])).unsqueeze(dim=0) 
                                             for a in range(self.env_config["num_agents"])}
-            return obs_dict, contact, infos_dict
+            return obs_dict, contact, time_till_end, infos_dict
     
     def reset(self, idx):
         reset_obs, infos_dict = self.vector_env.try_reset(idx)
         self.vector_env.poll()
 
         contact = {"agent_{0}".format(a): torch.zeros((1, 1)) for a in range(self.env_config["num_agents"])}
+        time_till_end = {"agent_{0}".format(a): torch.ones((1, 1)) for a in range(self.env_config["num_agents"])}
 
         if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]["visual_observation_space"].copy()).unsqueeze(dim=0)
@@ -142,7 +149,7 @@ class EnvironmentHandler():
         else:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)].copy()).unsqueeze(dim=0)
                                             for a in range(self.env_config["num_agents"])}
-            return obs_dict, contact, infos_dict
+            return obs_dict, contact, time_till_end, infos_dict
 
 
 

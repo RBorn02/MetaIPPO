@@ -403,6 +403,8 @@ class CraftingEnv(MultiAgentEnv):
     
     def compute_reward_every_stage(self):
 
+        time_till_end = (self.timelimit - self.time_steps) / self.timelimit
+
         for s in range(1, self.stage+1):
             condition_obj = self.task_dict["stage_{0}".format(s)]["condition_object"]
             if condition_obj.condition_satisfied:
@@ -467,9 +469,9 @@ class CraftingEnv(MultiAgentEnv):
         
         for agent in self._active_agents:
             if self.stage_first_reward_dict[agent.name]["stage_{0}".format(self.stage)] and int(reward) == self.stage:
-                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
+                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end}
             else:
-                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name]}
+                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end}
             
             for s in range(1, self.stage + 1):
                 if self.success_rate_dict["stage_{0}".format(s)][-1]: 
