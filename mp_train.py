@@ -392,7 +392,7 @@ if __name__ == "__main__":
 
         #Tracking
         run_name = "PPO_{0}_{1}_{2}_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
-                                                config["env_config"]["coop_chance"], datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S"))
+                                                config["env_config"]["coop_chance"], time.time())
         if not config["debug"]:
             wandb.init(
                 project="MetaIPPO",
