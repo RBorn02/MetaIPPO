@@ -151,16 +151,16 @@ class CustomRewardOnActivation(RewardOnActivation):
         return self_spawn_coordinates, partner_spawn_coordinates
     
     def adjust_coordinates(self, x, y):
-        if x < y:
-            if x - 150 > 0:
-                x = x - 30
-            else:
+        if round(x, -1) == 20 or round(x, -1) == 280:
+            if round(x, -1) == 20:
                 x = x + 30
-        else:
-            if y - 150 > 0:
-                y = y - 30
             else:
+                x = x - 30
+        else:
+            if round(y, -1) == 20:
                 y = y + 30
+            else:
+                y = y - 30
         return (x, y)
 
     
@@ -283,18 +283,17 @@ class InputOutputMachine(ActivableByGem):
         return self_spawn_coordinates
     
     def adjust_coordinates(self, x, y):
-        if x < y:
-            if x - 150 > 0:
-                x = x - 30
-            else:
+        if round(x, -1) == 20 or round(x, -1) == 280:
+            if round(x, -1) == 20:
                 x = x + 30
-        else:
-            if y - 150 > 0:
-                y = y - 30
             else:
+                x = x - 30
+        else:
+            if round(y, -1) == 20:
                 y = y + 30
+            else:
+                y = y - 30
         return (x, y)
-
  
 
 
@@ -857,10 +856,10 @@ class CraftingEnv(MultiAgentEnv):
     def sample_stage_task(self, stage, num_stages, end_condition, assigned_stage_tasks):
         if stage == 1 and num_stages > 1:
             if "lemon_hunt" not in assigned_stage_tasks:
-                stage_task = "activate_landmarks"
+                stage_task = random.choice(["activate_landmarks", "crafting"])
             else:
                 if "in_out_machine" not in assigned_stage_tasks:
-                    stage_task = random.choice(["crafting", "in_out_machine"])
+                    stage_task = "in_out_machine"
                 else:
                     stage_task = "crafting"
         elif stage == num_stages and num_stages > 1:
