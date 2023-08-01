@@ -372,8 +372,6 @@ class CoopCraftingEnv(MultiAgentEnv):
         self.last_coop = False
         
 
-
-
     def process_obs(self):
         obs = {}
         for agent in self._active_agents:
@@ -448,6 +446,8 @@ class CoopCraftingEnv(MultiAgentEnv):
         
         end_conditions = ["no_object", "object_exists"]
 
+        self.agent_goal_dict = {}
+        self.agent_first_reward_dict = {}
         if self.coop:
             self.spawn_agents(element_coordinates, 2, self.shared_playground)
             #stage = self.stage_scheduler() #Change later but for now we only use 3 stages and sampling does not work for non coop
@@ -456,8 +456,8 @@ class CoopCraftingEnv(MultiAgentEnv):
             self._active_agents = self.shared_playground.agents.copy()
 
         else:
-            self.spawn_agents(element_coordinates, 1, self.agent_0_playground)
-            self.spawn_agents(element_coordinates, 1, self.agent_1_playground)
+            self.spawn_agents(element_coordinates, 1, self.agent_0_playground, "agent_0")
+            self.spawn_agents(element_coordinates, 1, self.agent_1_playground, "agent_1")
 
             #stage_agent_0 = self.stage_scheduler()
             self.task_dict_agent_0 = self.sample_task_tree(3, end_conditions, possible_objects.copy(), element_coordinates.copy(), 
@@ -562,7 +562,10 @@ class CoopCraftingEnv(MultiAgentEnv):
         return rewards, dones, truncateds, infos
     
 
-    def spawn_agents(self, element_coordinates, num_agents, playground):
+    def spawn_agents(self, element_coordinates, num_agents, playground, agent_name=None):
+        if agent_name is not None:
+            assert num_agents == 1, "Only one agent allowed for now"
+
         sample_pos_agents = random.sample(element_coordinates, num_agents)
         possible_agent_samplers = []
         for i in range(num_agents):
@@ -572,10 +575,6 @@ class CoopCraftingEnv(MultiAgentEnv):
 
         
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
-        agent_dict = {}
-        
-        self.agent_goal_dict = {}
-        self.agent_first_reward_dict = {}
         agent_ls = []
         for i in range(num_agents):
             agent = BaseAgent(
@@ -583,7 +582,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             radius=12,
             mass=15,
             interactive=True, 
-            name="agent_{0}".format(i),
+            name="agent_{0}".format(i) if agent_name is None else agent_name,
             texture=UniqueCenteredStripeTexture(size=10,
                 color=possible_agent_colors[i], color_stripe=(0,0,0), size_stripe=4),
             temporary=True)
@@ -591,9 +590,9 @@ class CoopCraftingEnv(MultiAgentEnv):
             categories = 2**3
             for p in agent.parts:
                 p.pm_visible_shape.filter = pymunk.ShapeFilter(categories)
-            agent_dict["agent_{0}".format(i)] = agent
-            self.agent_goal_dict["agent_{0}".format(i)] = np.zeros(self.num_goals, dtype=int)
-            self.agent_ids.add("agent_{0}".format(i))
+            name = "agent_{0}".format(i) if agent_name is None else agent_name
+            self.agent_goal_dict[name] = np.zeros(self.num_goals, dtype=int)
+            self.agent_ids.add(name)
             agent_ls.append(agent)
       
         for agent, idx in zip(agent_ls, range(self.num_agents)):
@@ -1004,7 +1003,7 @@ if __name__ == "__main__":
                        "agent_1": torch.Tensor(env.action_space.sample())}
 
             obs, rewards, dones, _, info = env.step(actions)
-            print(obs)
+            print(obs.keys(), rewards.keys(), dones.keys(), info.keys())
             img = env.render()
             cv2.imshow('agent', img)
             cv2.waitKey(10)
