@@ -3,6 +3,7 @@ import gymnasium as gym
 from Envs.simple_landmarks import MultiAgentLandmarks, MultiGoalEnv, MultiAgentLandmarksComm
 from Envs.linear_rooms import LinRoomEnv, LinRoomEnvComm, LinLandmarksEnv, LinLandmarksEnvComm
 from Envs.crafting_env import CraftingEnv
+from Envs.coop_crafting import CoopCraftingEnv
 from Envs.treasure_hunt import TreasureHunt, TreasureHuntComm
 from typing import Callable, Dict, List, Tuple, Optional, Union, Set, Type
 import torch
@@ -165,6 +166,8 @@ class EnvironmentHandler():
             return LinLandmarksEnv(config)
         elif config["env_name"] == "CraftingEnv":
             return CraftingEnv(config)
+        elif config["env_name"] == "CoopCraftingEnv":
+            return CoopCraftingEnv(config)
         elif config["env_name"] == "TreasureHunt":
             return TreasureHunt(config)
         elif config["env_name"] == "LinRoomEnvComm":
