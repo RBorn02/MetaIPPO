@@ -138,7 +138,7 @@ def build_storage_from_batch(batch, config):
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
         next_time_till_end[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
 
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
             stage_success_info[agent] = {}
             for s in range(1, 4):
                 num_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
@@ -194,7 +194,7 @@ def build_storage_from_batch_pop(batch, config):
         achieved_goal_success[agent] = torch.sum(torch.cat([agent_batch[i][5][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
         next_contact[agent] = torch.cat([agent_batch[i][6][agent] for i in range(len(agent_batch))], dim=1)
 
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
             stage_success_info[agent] = {}
             for s in range(1, 4):
                 num_stage_sampled = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(agent_batch))])
@@ -353,7 +353,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
         average_reward_dict[a].append(episodic_reward)
         success_rate_dict[a].append(success_rate)
 
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
             for s in range(1, 4):
                     stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
                     stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
@@ -364,7 +364,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             average_success_rate = sum(success_rate_dict[a][-25:]) / 25
 
             rolling_stage_success_rates = {}
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                 for s in range(1, 4):
                     rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)][-25:]) / 25
            
@@ -374,7 +374,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
 
             rolling_stage_success_rates = {}
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                 for s in range(1, 4):
                     rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)]) / len(stages_average_success_rate[a]["stage_{0}".format(s)])
                    
@@ -408,7 +408,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             for g in range(achieved_goal[a].shape[0]):
                 print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
 
-        elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+        elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
             for s in range(1, 4):
                 stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
                 stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]

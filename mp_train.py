@@ -292,7 +292,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
 
                     success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
 
-                    if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                    if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                         for s in range(1, 4):
                             num_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                             num_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
@@ -519,7 +519,7 @@ if __name__ == "__main__":
                             rewards["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
                             successes["agent_{0}".format(a)].append(success_rate["agent_{0}".format(a)])
                             
-                            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                                 for s in range(1, 4):
                                     stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                                                 stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
@@ -537,7 +537,7 @@ if __name__ == "__main__":
                                 total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
                                 total_successes["agent_{0}".format(a)] = sum(successes["agent_{0}".format(a)][-update_ratio:])
                                 
-                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                                     total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
                                                                                 for s in range(1, 4)}
                                     
@@ -559,7 +559,7 @@ if __name__ == "__main__":
                                         "agent_{0}_rewards".format(a): agent_info["reward"]}
                                 
                                 #Log info for the different task stages in Crafting Env
-                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
+                                if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                                     for s in range(1, 4):
                                         log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
                                         log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
