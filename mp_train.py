@@ -560,7 +560,7 @@ if __name__ == "__main__":
                                 
                                 #Log info for the different task stages in Crafting Env
                                 if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-                                    for s in range(1, config["env_config"]["num_stages"] + 1):
+                                    for s in range(1, config["env_config"]["stages"] + 1):
                                         log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
                                         log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
                                         log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
