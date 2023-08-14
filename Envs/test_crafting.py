@@ -298,9 +298,9 @@ class InputOutputMachine(ActivableByGem):
 
 
 
-class CoopCraftingEnv(MultiAgentEnv):
+class TestCraftingEnv(MultiAgentEnv):
     def __init__(self, config):
-        super(CoopCraftingEnv, self).__init__()
+        super(TestCraftingEnv, self).__init__()
 
         self.config = config
         self.num_goals = config["num_landmarks"]
@@ -313,6 +313,9 @@ class CoopCraftingEnv(MultiAgentEnv):
         self.seed = config["seed"]
         self.min_prob = config["min_prob"]
         self.max_prob = config["max_prob"]
+        self.test_shape = config["test_shape"]
+        self.test_color = config["test_color"]
+        self.all_test_objects = config["all_test_objects"]
         self.stages = config["stages"]
         self.episodes = 0
         self.time_steps = 0
@@ -367,7 +370,7 @@ class CoopCraftingEnv(MultiAgentEnv):
         self.observation_space = spaces.Box(high=1, low=0, shape=(self.resolution, self.resolution, 3), dtype=np.float32)
 
         self.success_rate_dict = {}
-        for s in range(1, self.stages + 1):
+        for s in range(1, 4):
             self.success_rate_dict["stage_{0}".format(s)] = {"agent_0": [False], "agent_1": [False]}
 
         self.last_coop = False
@@ -410,9 +413,9 @@ class CoopCraftingEnv(MultiAgentEnv):
 
         observations = self.process_obs()
         if self.coop:
-            rewards, dones, truncated, info = self.compute_reward_every_stage(self.stages, self.task_dict)
+            rewards, dones, truncated, info = self.compute_reward_every_stage(3, self.task_dict)
         else:
-            rewards, dones, truncated, info = self.compute_reward_every_stage(self.stages, self.task_dict_agent_0, self.task_dict_agent_1)
+            rewards, dones, truncated, info = self.compute_reward_every_stage(3, self.task_dict_agent_0, self.task_dict_agent_1)
 
         return observations, rewards, dones, truncated, info
     
@@ -432,6 +435,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                 self.agent_1_engine.reset()
             
         self.end_condition_object_has_existed = False
+        self.test_object_sampled = False
 
         self.coop = np.random.uniform() < self.coop_chance
         self.last_coop = self.coop
@@ -443,11 +447,29 @@ class CoopCraftingEnv(MultiAgentEnv):
         #Possible objects
         possible_objects = [("circle",[255,255,0]),("circle",[0,255,55]),("circle",[255,0,255]),
                         ("pentagon",[255,255,0]),("pentagon",[0,255,255]),("pentagon",[255,0,255]),
-                        ("triangle",[255,255,0]),("triangle",[0,255,255]),("triangle",[255,0,255]),
-                        ("circle",[255,255,0]),("circle",[0,255,55]),("circle",[255,0,255]),       
-                        ("pentagon",[255,255,0]),("pentagon",[0,255,255]),("pentagon",[255,0,255]),
-                        ("triangle",[255,255,0]),("triangle",[0,255,255]),("triangle",[255,0,255])] #Copied as a hack to allow for
-                                                                                                    #more stages as objects run out
+                        ("triangle",[255,255,0]),("triangle",[0,255,255]),("triangle",[255,0,255])]
+        
+        #testing objects
+        new_colors_and_shapes = [("hexagon", [139,69,19]), ("hexagon", [188, 143, 143]), ("hexagon", [255, 0, 0]),
+                                      ("square", [139,69,19]), ("square", [188, 143, 143]), ("square", [255, 0, 0]),
+                                      ("rectangle", [139,69,19]), ("rectangle", [188, 143, 143]), ("rectangle", [255, 0, 0])]
+
+        new_colors = [("circle", [139,69,19]), ("pentagon", [139,69,19]), ("triangle", [139,69,19]),
+                         ("circle", [188, 143, 143]), ("pentagon", [188, 143, 143]), ("triangle", [188, 143, 143]),
+                         ("circle", [255, 0, 0]), ("pentagon", [255, 0, 0]), ("triangle", [255, 0, 0])]
+        
+        new_shapes = [("hexagon", [255, 255, 0]), ("hexagon", [0, 255, 255]), ("hexagon", [255, 0, 255]),
+                            ("square", [255, 255, 0]), ("square", [0, 255, 255]), ("square", [255, 0, 255]),
+                            ("rectangle", [255, 255, 0]), ("rectangle", [0, 255, 255]), ("rectangle", [255, 0, 255])]
+        
+        if self.test_shape and self.test_color:
+            test_objects = new_colors_and_shapes
+        elif self.test_color:
+            test_objects = new_colors
+        elif self.test_shape:
+            test_objects = new_shapes
+        else:
+            assert False, "No test object specified"
         
         end_conditions = ["no_object", "object_exists"]
 
@@ -456,7 +478,7 @@ class CoopCraftingEnv(MultiAgentEnv):
         if self.coop:
             self.spawn_agents(element_coordinates, 2, self.shared_playground)
             #stage = self.stage_scheduler() #Change later but for now we only use 3 stages and sampling does not work for non coop
-            self.task_dict = self.sample_task_tree(self.stages, end_conditions, possible_objects, element_coordinates, 
+            self.task_dict = self.sample_task_tree(3, end_conditions, possible_objects, test_objects, element_coordinates, 
                                               env_coordinates, 2, playground=self.shared_playground)
             self._active_agents = self.shared_playground.agents.copy()
 
@@ -465,11 +487,11 @@ class CoopCraftingEnv(MultiAgentEnv):
             self.spawn_agents(element_coordinates, 1, self.agent_1_playground, "agent_1")
 
             #stage_agent_0 = self.stage_scheduler()
-            self.task_dict_agent_0 = self.sample_task_tree(self.stages, end_conditions, possible_objects.copy(), element_coordinates.copy(), 
+            self.task_dict_agent_0 = self.sample_task_tree(3, end_conditions, possible_objects.copy(), test_objects.copy(), element_coordinates.copy(), 
                                               env_coordinates.copy(), 1, playground=self.agent_0_playground, agent_name="agent_0")
             
             #stage_agent_1 = self.stage_scheduler()
-            self.task_dict_agent_1 = self.sample_task_tree(self.stages, end_conditions, possible_objects.copy(), element_coordinates.copy(),
+            self.task_dict_agent_1 = self.sample_task_tree(3, end_conditions, possible_objects.copy(), test_objects.copy(), element_coordinates.copy(),
                                                 env_coordinates.copy(), 1, playground=self.agent_1_playground, agent_name="agent_1")
             self._active_agents = []
             self._active_agents.append(self.agent_0_playground.agents[0])
@@ -479,9 +501,9 @@ class CoopCraftingEnv(MultiAgentEnv):
         info = {}
         self.stage_first_reward_dict = {}
         for agent in self._active_agents:
-            self.stage_first_reward_dict[agent.name] = {"stage_{0}".format(s): True for s in range(1, self.stages+1)}
+            self.stage_first_reward_dict[agent.name] = {"stage_{0}".format(s): True for s in range(1, 4)}
         
-        for s in range(1, self.stages+1):
+        for s in range(1, 4):
             self.success_rate_dict["stage_{0}".format(s)] = {"agent_0": [False], "agent_1": [False]}
         
         if self.coop:
@@ -633,13 +655,16 @@ class CoopCraftingEnv(MultiAgentEnv):
         stages_probabilities = [p / sum(stages_probabilities) for p in stages_probabilities]
 
         stage = np.random.choice([1, 2, 3], p=stages_probabilities)
-        stage = 3 #Hack for now to only sample stage 3 if reward success at all levels
+        stage = self.stages #Hack for now to only sample stage 3 if reward success at all levels
         return stage
 
     
-    def sample_task_tree(self, num_stages, end_conditions, possible_objects, element_coordinates, 
+    def sample_task_tree(self, num_stages, end_conditions, possible_objects, test_objects, element_coordinates, 
                          env_coordinates, num_agents, num_distractors=0, playground=None, agent_name=None):
+        
         possible_object_types = possible_objects.copy()
+        test_object_types = test_objects.copy()
+
         task_dict = {}
         end_condition = random.choice(end_conditions)
         end_condition_object = random.choice(possible_object_types)
@@ -665,7 +690,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             stage_task_type = self.sample_stage_task(s, num_stages, end_condition, assigned_stage_tasks)
             assigned_stage_tasks.append(stage_task_type)
             needed_in_objects, needed_env_object, condition_obj = self.task_creator(stage_task_type, task_out_objects, possible_object_types, 
-                                                                                    s, num_agents, agent_name=agent_name)
+                                                                                    test_object_types, s, num_agents, agent_name=agent_name)
             needed_env_objects.append(needed_env_object)
             task_dict["stage_{0}".format(s)] = {}
             task_dict["stage_{0}".format(s)]["task"] = stage_task_type
@@ -700,6 +725,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             sampled_num_distractors = random.randint(0, num_distractors)
         else:
             sampled_num_distractors = 0
+
         for d in range(sampled_num_distractors):
             distractor_object = random.choice(possible_object_types)
             possible_object_types.remove(distractor_object)
@@ -718,17 +744,38 @@ class CoopCraftingEnv(MultiAgentEnv):
 
         return task_dict
     
-    def task_creator(self, stage_task_type, task_out_objects, possible_object_types, stage, num_agents, agent_name=None):
+    def task_creator(self, stage_task_type, task_out_objects, possible_object_types, test_object_types, stage, num_agents, agent_name=None):
         needed_in_objects = []
         needed_env_object = []
+
         if stage_task_type == "crafting":
             for object, n in zip(task_out_objects, range(len(task_out_objects))):
                 if n == 0:
-                    object_type = random.choice(possible_object_types)
-                    possible_object_types.remove(object_type)
+                    
+                    if self.all_test_objects is False:
+                        if self.test_object_sampled:
+                            object_type = random.choice(possible_object_types)
+                            possible_object_types.remove(object_type)
+                        else:
+                            if stage == 1:
+                                object_type = random.choice(test_object_types)
+                                test_object_types.remove(object_type)
+                                self.test_object_sampled = True
+                            else:
+                                object_type = random.choice(possible_object_types + test_object_types)
+                                if object_type in possible_object_types:
+                                    possible_object_types.remove(object_type)
+                                else:
+                                    test_object_types.remove(object_type)
+                                    self.test_object_sampled = True
+                    else:
+                        object_type = random.choice(test_object_types)
+                        test_object_types.remove(object_type)
+
+                    
                     object_shape = object_type[0]
                     object_color = object_type[1]
-                    
+
 
                     chest_object = Chest(physical_shape=object_shape, radius=10, 
                                         texture=ColorTexture(color=object_color, size=10),
@@ -736,8 +783,26 @@ class CoopCraftingEnv(MultiAgentEnv):
                                         name="chest_object_{0}".format(stage),
                                         temporary=True)
                     
-                    object_type = random.choice(possible_object_types)
-                    possible_object_types.remove(object_type)
+                    if self.all_test_objects is False:
+                        if self.test_object_sampled:
+                            object_type = random.choice(possible_object_types)
+                            possible_object_types.remove(object_type)
+                        else:
+                            if stage == 1:
+                                object_type = random.choice(test_object_types)
+                                test_object_types.remove(object_type)
+                                self.test_object_sampled = True
+                            else:
+                                object_type = random.choice(possible_object_types + test_object_types)
+                                if object_type in possible_object_types:
+                                    possible_object_types.remove(object_type)
+                                else:
+                                    test_object_types.remove(object_type)
+                                    self.test_object_sampled = True
+                    else:
+                        object_type = random.choice(test_object_types)
+                        test_object_types.remove(object_type)
+
                     object_shape = object_type[0]
                     object_color = object_type[1]
                     
@@ -769,10 +834,28 @@ class CoopCraftingEnv(MultiAgentEnv):
                             name="dropoff",
                             temporary=True)
             
-            object = random.choice(possible_object_types)
-            possible_object_types.remove(object)
-            object_shape = object[0]
-            object_color = object[1]
+            if self.all_test_objects is False:
+                if self.test_object_sampled:
+                    object_type = random.choice(possible_object_types)
+                    possible_object_types.remove(object_type)
+                else:
+                    if stage == 1:
+                        object_type = random.choice(test_object_types)
+                        test_object_types.remove(object_type)
+                        self.test_object_sampled = True
+                    else:
+                        object_type = random.choice(possible_object_types + test_object_types)
+                        if object_type in possible_object_types:
+                            possible_object_types.remove(object_type)
+                        else:
+                            test_object_types.remove(object_type)
+                            self.test_object_sampled = True
+            else:
+                object_type = random.choice(test_object_types)
+                test_object_types.remove(object_type)
+
+            object_shape = object_type[0]
+            object_color = object_type[1]
 
             dropoff_diamond = Diamond(dropoff, physical_shape=object_shape, radius=10,
                                     texture=ColorTexture(color=object_color, size=10),
@@ -843,20 +926,56 @@ class CoopCraftingEnv(MultiAgentEnv):
             possible_agent_names.remove(lemon_agent)
             agent_name = possible_agent_names[0]
 
-            object = random.choice(possible_object_types)
-            possible_object_types.remove(object)
-            object_shape = object[0]
-            object_color = object[1]
+            if self.all_test_objects is False:
+                if self.test_object_sampled:
+                    object_type = random.choice(possible_object_types)
+                    possible_object_types.remove(object_type)
+                else:
+                    if stage == 1:
+                        object_type = random.choice(test_object_types)
+                        test_object_types.remove(object_type)
+                        self.test_object_sampled = True
+                    else:
+                        object_type = random.choice(possible_object_types + test_object_types)
+                        if object_type in possible_object_types:
+                            possible_object_types.remove(object_type)
+                        else:
+                            test_object_types.remove(object_type)
+                            self.test_object_sampled = True
+            else:
+                object_type = random.choice(test_object_types)
+                test_object_types.remove(object_type)
+
+            object_shape = object_type[0]
+            object_color = object_type[1]
 
             lemon = Lemon(physical_shape=object_shape, radius=10,
                             texture=object_color,
                             name="lemon_{0}".format(stage), agent_name=lemon_agent,
                             temporary=True)
             
-            object = random.choice(possible_object_types)
-            possible_object_types.remove(object)
-            object_shape = object[0]
-            object_color = object[1]
+            if self.all_test_objects is False:
+                if self.test_object_sampled:
+                    object_type = random.choice(possible_object_types)
+                    possible_object_types.remove(object_type)
+                else:
+                    if stage == 1:
+                        object_type = random.choice(test_object_types)
+                        test_object_types.remove(object_type)
+                        self.test_object_sampled = True
+                    else:
+                        object_type = random.choice(possible_object_types + test_object_types)
+                        if object_type in possible_object_types:
+                            possible_object_types.remove(object_type)
+                        else:
+                            test_object_types.remove(object_type)
+                            self.test_object_sampled = True
+            else:
+                object_type = random.choice(test_object_types)
+                test_object_types.remove(object_type)
+
+            object_shape = object_type[0]
+            object_color = object_type[1]
 
             lemon_dispenser = LemonDispenser(agent_name=agent_name, radius=10,
                                                                 texture=ColorTexture(color=object_color, size=15),
@@ -877,10 +996,28 @@ class CoopCraftingEnv(MultiAgentEnv):
                             name="in_out_machine", reward=task_out_objects[0],
                             temporary=True)
             
-            object = random.choice(possible_object_types)
-            possible_object_types.remove(object)
-            object_shape = object[0]
-            object_color = object[1]
+            if self.all_test_objects is False:
+                if self.test_object_sampled:
+                    object_type = random.choice(possible_object_types)
+                    possible_object_types.remove(object_type)
+                else:
+                    if stage == 1:
+                        object_type = random.choice(test_object_types)
+                        test_object_types.remove(object_type)
+                        self.test_object_sampled = True
+                    else:
+                        object_type = random.choice(possible_object_types + test_object_types)
+                        if object_type in possible_object_types:
+                            possible_object_types.remove(object_type)
+                        else:
+                            test_object_types.remove(object_type)
+                            self.test_object_sampled = True
+            else:
+                object_type = random.choice(test_object_types)
+                test_object_types.remove(object_type)
+
+            object_shape = object_type[0]
+            object_color = object_type[1]
         
             in_out_machine_diamond = Diamond(in_out_machine, physical_shape=object_shape, radius=10,
                                     texture=ColorTexture(color=object_color, size=10),
@@ -971,7 +1108,11 @@ if __name__ == "__main__":
     config = {"num_landmarks": 1,
               "num_agents": 2,
               "timelimit": 10000,
-              "coop_chance":0.5,
+              "coop_chance":1.0,
+              "test_shape": True,
+              "test_color": True,
+              "stages": 3,
+              "all_test_objects": False,
               "message_length": 3,
               "vocab_size": 3,
               "message_penalty": 0.02,
@@ -983,8 +1124,9 @@ if __name__ == "__main__":
               "random_assign": True,
               "min_prob": 0.025,
               "max_prob": 0.95,
-              "agent_resolution": 128}
-    env = CoopCraftingEnv(config)
+              "agent_resolution": 128,
+              }
+    env = TestCraftingEnv(config)
     print(env.action_space.sample())
     obs = env.reset()
     obs_sampled = env.observation_space.sample()

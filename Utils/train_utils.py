@@ -140,7 +140,7 @@ def build_storage_from_batch(batch, config):
 
         if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
             stage_success_info[agent] = {}
-            for s in range(1, 4):
+            for s in range(1, config["env_config"]["stages"] + 1):
                 num_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)][0] for i in range(len(batch))])
                 num_stage_success = sum([batch[i][8][agent]["stage_{0}".format(s)][1] for i in range(len(batch))])
                 stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
@@ -196,7 +196,7 @@ def build_storage_from_batch_pop(batch, config):
 
         if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
             stage_success_info[agent] = {}
-            for s in range(1, 4):
+            for s in range(1, config["env_config"]["stages"]+1):
                 num_stage_sampled = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(agent_batch))])
                 num_stage_success = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(agent_batch))])
                 stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
@@ -281,6 +281,7 @@ def build_config(args):
         config["env_config"]["playground_height"] = args.playground_height
         config["env_config"]["playground_width"] = args.playground_width
         config["env_config"]["agent_resolution"] = args.agent_resolution
+        config["env_config"]["stages"] = args.stages
         
         config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
@@ -353,8 +354,8 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
         average_reward_dict[a].append(episodic_reward)
         success_rate_dict[a].append(success_rate)
 
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-            for s in range(1, 4):
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+            for s in range(1, config["env_config"]["stages"] + 1):
                     stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
                     stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
                     stages_average_success_rate[a]["stage_{0}".format(s)].append(stage_successes / (stage_samples + 1e-8))
@@ -364,7 +365,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             average_success_rate = sum(success_rate_dict[a][-25:]) / 25
 
             rolling_stage_success_rates = {}
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
                 for s in range(1, 4):
                     rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)][-25:]) / 25
            
@@ -374,11 +375,11 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             average_success_rate = sum(success_rate_dict[a]) / len(success_rate_dict[a])
 
             rolling_stage_success_rates = {}
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-                for s in range(1, 4):
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+                for s in range(1, config["env_config"]["stages"] + 1):
                     rolling_stage_success_rates["stage_{0}".format(s)] = sum(stages_average_success_rate[a]["stage_{0}".format(s)]) / len(stages_average_success_rate[a]["stage_{0}".format(s)])
                    
-
+        print(best_average_reward_dict[a], average_reward)
         if average_reward > best_average_reward_dict[a]:
             best_average_reward_dict[a] = average_reward
  
@@ -408,8 +409,8 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             for g in range(achieved_goal[a].shape[0]):
                 print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
 
-        elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-            for s in range(1, 4):
+        elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+            for s in range(1, config["env_config"]["stages"] + 1):
                 stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
                 stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
                 stage_success_rate = stage_successes / (stage_samples + 1e-8)

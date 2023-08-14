@@ -53,6 +53,8 @@ parser.add_argument("--time_limit", type=int, default=250,
                     help="Number of max steps per episode")
 parser.add_argument("--coop_chance", type=float, default=1.0,
                     help="Chance of cooperative goal")
+parser.add_argument("--stages", type=int, default=3,
+                    help="Number of stages in the crafting environment")
 parser.add_argument("--single_goal", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Only sample a goal once per episode")
 parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
@@ -129,41 +131,6 @@ parser.add_argument("--time_till_end", type=lambda x: bool(strtobool(x)), defaul
 
 
 
-args = parser.parse_args()
-args.batch_size = int(args.rollout_steps)
-args.minibatch_size = int(args.batch_size // args.num_minibatches)
-
-config = build_config(args)
-device = config["device"]
-
-#Build the environemnt
-env = EnvironmentHandler(config)
-
-#Build the agents with their corresponding optimizers
-if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-    agent_dict = {"agent_{0}".format(a): CommsLSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
-else:
-    agent_dict = {"agent_{0}".format(a): LSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
-optimizer_dict = {"agent_{0}".format(a): {"optimizer": torch.optim.Adam(agent_dict["agent_{0}".format(a)].parameters(),
-                                                                        config["lr"], eps=1e-5)} 
-                        for a in range(config["env_config"]["num_agents"])}
-
-#Load the pretrained models if specified
-if config["pretrained"] is not None:
-    for a in range(config["env_config"]["num_agents"]):
-        agent_dict["agent_{0}".format(a)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
-        optimizer_dict["agent_{0}".format(a)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
-        print("Loaded pretrained model for agent {0}".format(a))
-
-    #Initiate the learning rate if pretrained
-    lrnow = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
-
-#Build the policies
-policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
-               for a in range(config["env_config"]["num_agents"])}
-
-
-
 def rollout(pid, policy_dict, train_queue, done, config):
     try:
         device = config["device"]
@@ -189,7 +156,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                 success_rate["agent_{0}".format(a)] = 0
                 achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
                 achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
-                stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, 4)}
+                stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, config["env_config"]["stages"] + 1)}
                        
         rollout_step = 0
     except Exception as e:
@@ -293,7 +260,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
 
                     if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-                        for s in range(1, 4):
+                        for s in range(1, config["env_config"]["stages"]+1):
                             num_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                             num_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
                             prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1]
@@ -354,7 +321,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                         success_rate["agent_{0}".format(a)] = 0.0
                         achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
                         achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
-                        stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, 4)}
+                        stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, config["env_config"]["stages"]+1)}
                     
                     print("Worker {0} finished collecting data".format(pid))
                     end = time.time()
@@ -375,6 +342,39 @@ def rollout(pid, policy_dict, train_queue, done, config):
 
 #Train the agents
 if __name__ == "__main__":
+
+    args = parser.parse_args()
+    args.batch_size = int(args.rollout_steps)
+    args.minibatch_size = int(args.batch_size // args.num_minibatches)
+
+    config = build_config(args)
+    device = config["device"]
+
+    #Build the environemnt
+    env = EnvironmentHandler(config)
+
+    #Build the agents with their corresponding optimizers
+    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        agent_dict = {"agent_{0}".format(a): CommsLSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
+    else:
+        agent_dict = {"agent_{0}".format(a): LSTMAgent(env, config).share_memory().to(device) for a in range(config["env_config"]["num_agents"])}
+    optimizer_dict = {"agent_{0}".format(a): {"optimizer": torch.optim.Adam(agent_dict["agent_{0}".format(a)].parameters(),
+                                                                            config["lr"], eps=1e-5)} 
+                            for a in range(config["env_config"]["num_agents"])}
+
+    #Load the pretrained models if specified
+    if config["pretrained"] is not None:
+        for a in range(config["env_config"]["num_agents"]):
+            agent_dict["agent_{0}".format(a)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
+            optimizer_dict["agent_{0}".format(a)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
+            print("Loaded pretrained model for agent {0}".format(a))
+
+        #Initiate the learning rate if pretrained
+        lrnow = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
+
+    #Build the policies
+    policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
+                for a in range(config["env_config"]["num_agents"])}
     #Multi Processing
     os.environ['OMP_NUM_THREADS'] = '1'
     mp.set_start_method('spawn')
@@ -437,9 +437,9 @@ if __name__ == "__main__":
             average_success_rate["agent_{0}".format(a)] = []
             successes["agent_{0}".format(a)] = []
             best_average_success_rate["agent_{0}".format(a)] = 0.0
-            stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
-            stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
-            stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, 4)}
+            stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+            stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+            stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
 
 
         #Start the game
@@ -472,7 +472,7 @@ if __name__ == "__main__":
                         storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
                     else:
                         storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
-                    print(next_time_till_end)
+
                     #Compute the advantages for each policy
                     for a in range(config["env_config"]["num_agents"]):
                         advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
@@ -520,7 +520,7 @@ if __name__ == "__main__":
                             successes["agent_{0}".format(a)].append(success_rate["agent_{0}".format(a)])
                             
                             if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-                                for s in range(1, 4):
+                                for s in range(1, config["env_config"]["stages"] + 1):
                                     stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                                                 stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
                                     stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
@@ -539,7 +539,7 @@ if __name__ == "__main__":
                                 
                                 if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
                                     total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
-                                                                                for s in range(1, 4)}
+                                                                                for s in range(1, config["env_config"]["stages"] + 1)}
                                     
                             training_info[update] = print_info(storage, total_completed, total_reward, total_stage_successes,
                                                                 stages_sampled, update, average_reward, best_average_reward,
@@ -560,7 +560,7 @@ if __name__ == "__main__":
                                 
                                 #Log info for the different task stages in Crafting Env
                                 if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-                                    for s in range(1, 4):
+                                    for s in range(1, config["env_config"]["num_stages"] + 1):
                                         log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
                                         log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
                                         log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
@@ -605,7 +605,6 @@ if __name__ == "__main__":
                     update += 1
                     if update >= num_updates:
                         print("Training finished")
-                        ctx.join()
                         break
                 else:
                     continue

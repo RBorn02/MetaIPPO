@@ -11,7 +11,7 @@ from agent import LSTMAgent, CommsLSTMAgent
 from policy import LSTM_PPO_Policy
 from mp_train import rollout
 from Envs.environment_handler import EnvironmentHandler
-from Utils.train_utils import record_video, build_config, build_storage, handle_dones, print_info
+from Utils.train_utils import record_video, build_config, build_storage, handle_dones, print_info, move_tensors_to_gpu
 
 parser = ArgumentParser()
 
@@ -43,25 +43,27 @@ parser.add_argument("--playground_width", type=int, default=300,
                     help="Width of the playground")
 parser.add_argument("--agent_resolution", type=int, default=64,
                     help="Resolution of the agent view")
-parser.add_argument("--num_envs", type=int, default=16,
+parser.add_argument("--num_envs", type=int, default=10,
                     help="Number of environments to vectorize")
-parser.add_argument("--time_limit", type=int, default=250,
+parser.add_argument("--time_limit", type=int, default=1000,
                     help="Number of max steps per episode")
 parser.add_argument("--coop_chance", type=float, default=1.0,
                     help="Chance of cooperative goal")
+parser.add_argument("--stages", type=int, default=3,
+                    help="Number of stages in the crafting environment")
 parser.add_argument("--single_goal", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Only sample a goal once per episode")
 parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Controls wether agents are done after receiving the reward or continue getting rewards")
 parser.add_argument("--total_steps", type=int, default=2.5*10e7,
                     help="Number of steps to train for")
-parser.add_argument("--rollout_steps", type=int, default=32000,
+parser.add_argument("--rollout_steps", type=int, default=10000,
                     help="Number of steps per rollout")
 parser.add_argument("--seed", type=int, default=1,
                     help="Random seed")
 parser.add_argument("--device", type=str, default="cpu",
                     help="Device to use for training")
-parser.add_argument("--num_workers", type=int, default=8,
+parser.add_argument("--num_workers", type=int, default=1,
                     help="Number of workers to use for training")
 
 # PPO specific arguments
@@ -119,6 +121,16 @@ parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True
                     help="Toggles whether or not to use contact information as input to the LSTM")
 parser.add_argument("--one_hot_message", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use one hot encoding for the message")
+parser.add_argument("--time_till_end", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Toggles whether or not to use time till end as input to the LSTM (Only Crafting Env)")
+
+# Test specific arguments
+parser.add_argument("--test_shape", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Test generalization to different shapes")
+parser.add_argument("--test_color", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Test generalization to different colors (if both shape and color are true, test generalization to both)")
+parser.add_argument("--all_test_objects", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Test generalization to all objects in the environment")
 
 args = parser.parse_args()
 args.batch_size = int(args.rollout_steps)
@@ -126,6 +138,9 @@ args.minibatch_size = int(args.batch_size // args.num_minibatches)
 
 config = build_config(args)
 config["env_config"]["test"] = True
+config["env_config"]["test_shape"] = args.test_shape
+config["env_config"]["test_color"] = args.test_color
+config["env_config"]["all_test_objects"] = args.all_test_objects
 device = config["device"]
 
 #Build the environemnt
@@ -164,53 +179,80 @@ if __name__ == "__main__":
     storage = build_storage(config, env)
 
     training_info = {}
-    average_reward = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
-    best_average_reward = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
-    average_success_rate = {"agent_{0}".format(a): [] for a in range(config["env_config"]["num_agents"])}
-    best_average_success_rate = {"agent_{0}".format(a): 0.0 for a in range(config["env_config"]["num_agents"])}
-    prev_best = 0.0
-
-    stages_rolling_success_rate = {"agent_{0}".format(a): {"stage_{0}".format(s): [] for s in range(1, 4)} 
-                                    for a in range(config["env_config"]["num_agents"])}
+    completed_episodes = {}
+    reward = {}
+    average_reward = {}
+    best_average_reward = {}
+    average_success_rate = {}
+    best_average_success_rate = {}
+    successes = {}
+    stages_successes = {}
+    stages_sampled = {}
+    stages_rolling_success_rate = {}
+    success_rate = {}
+    stages_success_info = {}
+    achieved_goal = {}
+    achieved_goal_success = {}
+    
+    for a in range(config["env_config"]["num_agents"]):
+        completed_episodes["agent_{0}".format(a)] = []
+        reward["agent_{0}".format(a)] = []
+        average_reward["agent_{0}".format(a)] = []
+        best_average_reward["agent_{0}".format(a)] = 0.0
+        average_success_rate["agent_{0}".format(a)] = []
+        successes["agent_{0}".format(a)] = []
+        best_average_success_rate["agent_{0}".format(a)] = 0.0
+        stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        success_rate["agent_{0}".format(a)] = 0
+        achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
+        achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
+        stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, config["env_config"]["stages"] + 1)} 
 
     num_steps = config["rollout_steps"] // config["env_config"]["num_envs"]
 
     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-            next_obs, next_messages_in, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+            next_obs, next_messages_in, next_contact, next_time_till_end, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
     else:
-        next_obs, next_contact, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
+        next_obs, next_contact, next_time_till_end, _ = env.reset_all([i for i in range(config["env_config"]["num_envs"])])
 
 
     next_dones = {"agent_{0}".format(a): torch.zeros((1, config["env_config"]["num_envs"])).to(device) for a in range(config["env_config"]["num_agents"])}
     last_actions = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["actions"][0].to(device) for a in range(config["env_config"]["num_agents"])}
     last_rewards = {"agent_{0}".format(a): storage["agent_{0}".format(a)]["rewards"][0].to(device) for a in range(config["env_config"]["num_agents"])}
     
-    success_rate = {}
-    stages_success_info = {}
-    achieved_goal = {}
-    achieved_goal_success = {}
+
     for a in range(config["env_config"]["num_agents"]):
             storage["agent_{0}".format(a)]["initial_lstm_state"] = (storage["agent_{0}".format(a)]["next_lstm_state"][0].clone(),
                                                                     storage["agent_{0}".format(a)]["next_lstm_state"][1].clone())
-            success_rate["agent_{0}".format(a)] = 0
-            achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
-            achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
-            stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, 4)} 
-
     rollout_step = 0
 
     while rollout_step < num_steps:
+        
+        if config["device"] == "cuda":
+            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+                move_tensors_to_gpu([storage, next_obs, next_messages_in, next_dones, success_rate, achieved_goal,
+                                    achieved_goal_success, next_contact, last_actions, last_rewards,
+                                    stages_success_info, ])
+            else:
+                move_tensors_to_gpu([storage, next_obs, next_dones, success_rate, achieved_goal,
+                                    achieved_goal_success, next_contact, last_actions, last_rewards,
+                                    stages_success_info])
+                
         for a in range(config["env_config"]["num_agents"]):
             next_agent_obs = next_obs["agent_{0}".format(a)].to(device)
             next_agent_dones = next_dones["agent_{0}".format(a)].to(device)
             next_agent_lstm_state = storage["agent_{0}".format(a)]["next_lstm_state"]
             next_agent_contact = next_contact["agent_{0}".format(a)].to(device)
+            next_agent_time_till_end = next_time_till_end["agent_{0}".format(a)].to(device)
             last_agent_actions = last_actions["agent_{0}".format(a)]
             last_agent_rewards = last_rewards["agent_{0}".format(a)]
             
             storage["agent_{0}".format(a)]["obs"][rollout_step] = next_agent_obs
             storage["agent_{0}".format(a)]["dones"][rollout_step] = next_agent_dones
             storage["agent_{0}".format(a)]["contact"][rollout_step] = next_agent_contact
+            storage["agent_{0}".format(a)]["time_till_end"][rollout_step] = next_agent_time_till_end
             storage["agent_{0}".format(a)]["last_actions"][rollout_step] = last_agent_actions
             storage["agent_{0}".format(a)]["last_rewards"][rollout_step] = last_agent_rewards
 
@@ -229,6 +271,7 @@ if __name__ == "__main__":
                                                                                                             last_agent_actions,
                                                                                                             last_agent_rewards.unsqueeze(dim=1),
                                                                                                             next_agent_contact.transpose(0,1),
+                                                                                                            next_agent_time_till_end.transpose(0,1),
                                                                                                             next_agent_message_in.squeeze(dim=0))
                     
                 else:
@@ -238,7 +281,8 @@ if __name__ == "__main__":
                                                                                                             next_agent_dones,
                                                                                                             last_agent_actions,
                                                                                                             last_agent_rewards.unsqueeze(dim=1),
-                                                                                                            next_agent_contact.transpose(0,1))
+                                                                                                            next_agent_contact.transpose(0,1),
+                                                                                                            next_agent_time_till_end.transpose(0,1))
                 
             storage["agent_{0}".format(a)]["values"][rollout_step] = value.transpose(0, 1)
             storage["agent_{0}".format(a)]["actions"][rollout_step] = action
@@ -257,13 +301,14 @@ if __name__ == "__main__":
                     input_dict["actions"] = actions.cpu()
                     input_dict["messages"] = messages.cpu()
 
-                    next_obs, next_messages_in, rewards, dones, next_contact, infos = env.step(input_dict)
+                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos = env.step(input_dict)
                 
         else:
             actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
                             for a in range(config["env_config"]["num_agents"])], dim=1)
 
-            next_obs, rewards, dones, next_contact, infos = env.step(actions.cpu())
+            next_obs, rewards, dones, next_contact, next_time_till_end, infos = env.step(actions.cpu())
+        #print(infos)
 
 
         
@@ -280,8 +325,8 @@ if __name__ == "__main__":
 
             success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
 
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm"]:
-                for s in range(1, 4):
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+                for s in range(1, config["env_config"]["stages"]+1):
                     num_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                     num_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
                     prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1]
@@ -301,25 +346,57 @@ if __name__ == "__main__":
             if dones["__all__"][e]:
                 for a in range(config["env_config"]["num_agents"]):
                     if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-                        reset_obs, reset_messages, reset_contact, _ = env.reset(e)
+                        reset_obs, reset_messages, reset_contact, reset_time_till_end, _ = env.reset(e)
                         next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                         next_messages_in["agent_{0}".format(a)][0][e] = reset_messages["agent_{0}".format(a)].to(device)
                         next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
+                        next_time_till_end["agent_{0}".format(a)][0][e] = reset_time_till_end["agent_{0}".format(a)].to(device)
                     else:
-                        reset_obs, reset_contact, _ = env.reset(e)
+                        reset_obs, reset_contact, reset_time_till_end, _ = env.reset(e)
                         next_obs["agent_{0}".format(a)][0][e] = reset_obs["agent_{0}".format(a)].to(device)
                         next_contact["agent_{0}".format(a)][0][e] = reset_contact["agent_{0}".format(a)].to(device)
+                        next_time_till_end["agent_{0}".format(a)][0][e] = reset_time_till_end["agent_{0}".format(a)].to(device)
                 
                 #successes_this_episode = achieved_goal_success["agent_0"].sum().item()
                 #print(successes_this_episode)
                 
 
         rollout_step += 1
+    
+    for a in range(config["env_config"]["num_agents"]):
+        completed_episodes["agent_{0}".format(a)].append(torch.sum(torch.cat((storage["agent_{0}".format(a)]["dones"][1:].cpu(),
+                                                                                next_dones["agent_{0}".format(a)]), dim=0)))
+        reward["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
+        successes["agent_{0}".format(a)].append(success_rate["agent_{0}".format(a)])
+        
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+            for s in range(1, config["env_config"]["stages"]+1):
+                stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                            stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
+                stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                            stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
+    
+    total_completed = {}
+    total_reward = {}
+    total_stage_successes = {}
+    total_successes = {}
+
+    for a in range(config["env_config"]["num_agents"]):
+        total_completed["agent_{0}".format(a)] = sum(completed_episodes["agent_{0}".format(a)])
+        total_reward["agent_{0}".format(a)] = sum(reward["agent_{0}".format(a)])
+        total_successes["agent_{0}".format(a)] = sum(successes["agent_{0}".format(a)])
+        
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+            total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)])
+                                                        for s in range(1, config["env_config"]["stages"]+1)}
 
     #Print info
-    #print_info(storage, next_dones, 0, average_reward, best_average_reward,
-    #            average_success_rate, best_average_success_rate, success_rate,
-    #            achieved_goal, achieved_goal_success, stages_success_info, stages_rolling_success_rate, config)
+
+    
+    print_info(storage, total_completed, total_reward, total_stage_successes,
+                stages_sampled, 0, average_reward, best_average_reward,
+                average_success_rate, best_average_success_rate, total_successes,
+                achieved_goal, achieved_goal_success, stages_rolling_success_rate, config)
 
     #Record a video
     path = config["pretrained"].removesuffix("models")
@@ -330,7 +407,7 @@ if __name__ == "__main__":
     video_config["env_config"]["num_envs"] = 1
     video_config["model_config"] = config["model_config"].copy()
     video_env = EnvironmentHandler(video_config)
-    record_video(video_config, video_env, policy_dict, 20, video_path, 0, True)
+    record_video(video_config, video_env, policy_dict, 10, video_path, 0, True)
 
     print("Finished testing")
     

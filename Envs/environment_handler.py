@@ -4,6 +4,7 @@ from Envs.simple_landmarks import MultiAgentLandmarks, MultiGoalEnv, MultiAgentL
 from Envs.linear_rooms import LinRoomEnv, LinRoomEnvComm, LinLandmarksEnv, LinLandmarksEnvComm
 from Envs.crafting_env import CraftingEnv
 from Envs.coop_crafting import CoopCraftingEnv
+from Envs.test_crafting import TestCraftingEnv
 from Envs.treasure_hunt import TreasureHunt, TreasureHuntComm
 from typing import Callable, Dict, List, Tuple, Optional, Union, Set, Type
 import torch
@@ -60,9 +61,11 @@ class EnvironmentHandler():
             true_goal = torch.zeros(self.env_config["num_landmarks"], (self.env_config["num_envs"]))
             message = torch.zeros((1, self.env_config["num_envs"], self.env_config["message_length"]))
             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
-            stage_one_successes = torch.zeros((1, self.env_config["num_envs"]))
-            stage_two_sucecsses = torch.zeros((1, self.env_config["num_envs"]))
-            stage_three_successes = torch.zeros((1, self.env_config["num_envs"]))
+
+            stages_info = []
+            for s in range(self.env_config["stages"]):
+                stages_info.append(torch.zeros(1, (self.env_config["num_envs"])))
+
             time_till_end = torch.zeros((1, self.env_config["num_envs"]))
 
             for env in obs_in.keys():
@@ -83,9 +86,9 @@ class EnvironmentHandler():
                     else:
                         landmark_contact[0][env] = 1.0
                     if "success_stage_1" in info[env]["agent_{0}".format(a)].keys():
-                        stage_one_successes[0][env] = info[env]["agent_{0}".format(a)]["success_stage_1"]
-                        stage_two_sucecsses[0][env] = info[env]["agent_{0}".format(a)]["success_stage_2"]
-                        stage_three_successes[0][env] = info[env]["agent_{0}".format(a)]["success_stage_3"]
+                        for s in range(self.env_config["stages"]):
+                            stages_info[s][0][env] = info[env]["agent_{0}".format(a)]["success_stage_{0}".format(s+1)]
+
                         time_till_end[0][env] = info[env]["agent_{0}".format(a)]["time_till_end"]
 
             obs_dict["agent_{0}".format(a)] = obs
@@ -98,9 +101,8 @@ class EnvironmentHandler():
             infos_dict["agent_{0}".format(a)] = {"success": successes, "goal_line": goal_lines, "true_goal": true_goal}
             
             if "success_stage_1" in info[env]["agent_{0}".format(a)].keys():
-                infos_dict["agent_{0}".format(a)]["success_stage_1"] = stage_one_successes
-                infos_dict["agent_{0}".format(a)]["success_stage_2"] = stage_two_sucecsses
-                infos_dict["agent_{0}".format(a)]["success_stage_3"] = stage_three_successes
+                for s in range(self.env_config["stages"]):
+                    infos_dict["agent_{0}".format(a)]["success_stage_{0}".format(s+1)] = stages_info[s]
 
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             
@@ -168,6 +170,8 @@ class EnvironmentHandler():
             return CraftingEnv(config)
         elif config["env_name"] == "CoopCraftingEnv":
             return CoopCraftingEnv(config)
+        elif config["env_name"] == "TestCraftingEnv":
+            return TestCraftingEnv(config)
         elif config["env_name"] == "TreasureHunt":
             return TreasureHunt(config)
         elif config["env_name"] == "LinRoomEnvComm":
