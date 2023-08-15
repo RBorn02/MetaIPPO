@@ -92,6 +92,11 @@ class EnvironmentHandler():
 
                         time_till_end[0][env] = info[env]["agent_{0}".format(a)]["time_till_end"]
 
+                    if "coop_success_stage_1" in info[env]["agent_{0}".format(a)].keys():
+                        for s in range(self.env_config["stages"]):
+                            stages_info[s+self.env_config["stages"]][0][env] = info[env]["agent_{0}".format(a)]["coop_success_stage_{0}".format(s+1)]
+                            stages_info[s+self.env_config["stages"]*2][0][env] = info[env]["agent_{0}".format(a)]["single_success_stage_{0}".format(s+1)]
+
             obs_dict["agent_{0}".format(a)] = obs
             message_dict["agent_{0}".format(a)] = message
             rewards_dict["agent_{0}".format(a)] = rewards
@@ -109,7 +114,7 @@ class EnvironmentHandler():
                 for s in range(self.env_config["stages"]):
                     infos_dict["agent_{0}".format(a)]["coop_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]]
                     infos_dict["agent_{0}".format(a)]["single_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]*2]
-
+        
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             
         if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
