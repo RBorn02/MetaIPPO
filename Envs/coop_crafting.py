@@ -544,7 +544,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                         if self.coop:
                             infos[agent.name]["coop_success_stage_{0}".format(s)] = 1.0
                         else:
-                            infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
+                            infos[agent.name]["single_success_stage_{0}".format(s)] = 1.0
 
                         self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)] = False
                     else:
