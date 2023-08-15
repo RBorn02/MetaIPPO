@@ -63,8 +63,9 @@ class EnvironmentHandler():
             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
 
             stages_info = []
-            for s in range(self.env_config["stages"]):
+            for s in range(self.env_config["stages"] * 3):
                 stages_info.append(torch.zeros(1, (self.env_config["num_envs"])))
+
 
             time_till_end = torch.zeros((1, self.env_config["num_envs"]))
 
@@ -103,6 +104,11 @@ class EnvironmentHandler():
             if "success_stage_1" in info[env]["agent_{0}".format(a)].keys():
                 for s in range(self.env_config["stages"]):
                     infos_dict["agent_{0}".format(a)]["success_stage_{0}".format(s+1)] = stages_info[s]
+
+            if "coop_success_stage_1" in info[env]["agent_{0}".format(a)].keys():
+                for s in range(self.env_config["stages"]):
+                    infos_dict["agent_{0}".format(a)]["coop_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]]
+                    infos_dict["agent_{0}".format(a)]["single_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]*2]
 
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             

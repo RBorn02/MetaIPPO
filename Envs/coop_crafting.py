@@ -538,15 +538,45 @@ class CoopCraftingEnv(MultiAgentEnv):
             for s in range(1, stage + 1):
                 if self.success_rate_dict["stage_{0}".format(s)][agent.name][-1]: 
                     if self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)]:
+
                         infos[agent.name]["success_stage_{0}".format(s)] = 1.0
+
+                        if self.coop:
+                            infos[agent.name]["coop_success_stage_{0}".format(s)] = 1.0
+                        else:
+                            infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
+
                         self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)] = False
                     else:
                         infos[agent.name]["success_stage_{0}".format(s)] = 0.0
+
+                        if self.coop:
+                            infos[agent.name]["coop_success_stage_{0}".format(s)] = 0.0
+                        else:
+                            infos[agent.name]["single_success_stage_{0}".format(s)] = 0.0
                 else:
                     infos[agent.name]["success_stage_{0}".format(s)] = 0.0
+
+                    if self.coop:
+                        infos[agent.name]["coop_success_stage_{0}".format(s)] = 0.0
+                    else:
+                        infos[agent.name]["single_success_stage_{0}".format(s)] = 0.0
                     
-            for s in range(stage+1, 4):
+            for s in range(stage+1, self.stages+1):
                 infos[agent.name]["success_stage_{0}".format(s)] = -1.0
+
+                if self.coop:
+                    infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
+                else:
+                    infos[agent.name]["single_success_stage_{0}".format(s)] = -1.0
+
+            for s in range(1, self.stages + 1):
+                
+                if self.coop:
+                    infos[agent.name]["single_success_stage_{0}".format(s)] = -1.0
+                
+                else:
+                    infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
     
             rewards[agent.name] = 0.1 * reward**2
 
@@ -584,6 +614,16 @@ class CoopCraftingEnv(MultiAgentEnv):
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
         agent_ls = []
         for i in range(num_agents):
+            if agent_name is not None:
+                if agent_name == "agent_0":
+                    color = (255, 255, 255)
+                elif agent_name == "agent_1":
+                    color = (170, 170, 170)
+                else:
+                    assert False, "Agent name not recognized"
+            else:
+                color = possible_agent_colors[i]
+                    
             agent = BaseAgent(
             controller=External(),
             radius=12,
@@ -591,7 +631,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             interactive=True, 
             name="agent_{0}".format(i) if agent_name is None else agent_name,
             texture=UniqueCenteredStripeTexture(size=10,
-                color=possible_agent_colors[i], color_stripe=(0,0,0), size_stripe=4),
+                color=color, color_stripe=(0,0,0), size_stripe=4),
             temporary=True)
             #Makes agents traversable
             categories = 2**3
@@ -958,7 +998,7 @@ class CoopCraftingEnv(MultiAgentEnv):
         if self.coop:
             image = self.shared_engine.generate_agent_image(self.shared_playground.agents[0], max_size_pg=max(self.playground_height, self.playground_width))
         else:
-            image = self.agent_0_engine.generate_agent_image(self.agent_0_playground.agents[0], max_size_pg=max(self.playground_height, self.playground_width))
+            image = self.agent_1_engine.generate_agent_image(self.agent_1_playground.agents[0], max_size_pg=max(self.playground_height, self.playground_width))
         return image
        
     def close(self):
@@ -972,6 +1012,7 @@ if __name__ == "__main__":
               "num_agents": 2,
               "timelimit": 10000,
               "coop_chance":0.5,
+              "stages": 3,
               "message_length": 3,
               "vocab_size": 3,
               "message_penalty": 0.02,
