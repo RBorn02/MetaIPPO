@@ -269,7 +269,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                             prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"][1]
                             stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"] = (num_stage_sampled, num_stage_success + prev_stage_success)
 
-                            if config["env_config"]["env_name"] in ["CoopCraftingEnv"]:
+                            if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
                                 num_coop_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["coop_success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                                 num_coop_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["coop_success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
                                 prev_coop_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"][1]
