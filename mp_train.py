@@ -613,7 +613,7 @@ if __name__ == "__main__":
                                         log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
                                         log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
                                 
-                                        if config["env_config"]["env_name"] in ["CoopCraftingEnv"]:
+                                        if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
                                             log_dict["agent_{0}_stage_{1}_coop_samples".format(a, s)] = agent_info["stage_{0}_coop_samples".format(s)]
                                             log_dict["agent_{0}_stage_{1}_coop_successes".format(a, s)] = agent_info["stage_{0}_coop_successes".format(s)]
                                             log_dict["agent_{0}_stage_{1}_coop_success_rate".format(a, s)] = agent_info["stage_{0}_coop_success_rate".format(s)]
