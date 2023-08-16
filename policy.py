@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+from Envs.environment_handler import COMM_ENVS
+
 
 class LSTM_PPO_Policy():
     def __init__(self, config, agent, optimizer):
@@ -138,7 +140,7 @@ class LSTM_PPO_Policy():
         b_returns = returns.reshape(-1).to(device)
         b_values = values.reshape(-1).to(device)
 
-        if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if self.config["env_config"]["env_name"] in COMM_ENVS:
             b_messages_in = storage["message_in"].reshape((-1, self.config["env_config"]["message_length"]))
             b_messages_in = b_messages_in.to(device)
 
@@ -156,7 +158,7 @@ class LSTM_PPO_Policy():
                 mbenvinds = envinds[start:end]
                 mb_inds = flatinds[:, mbenvinds].ravel()  # be really careful about the index
 
-                if self.config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+                if self.config["env_config"]["env_name"] in COMM_ENVS:
                     _, newlogprob, entropy, newvalue, _ = self.agent.get_action_and_value(
                         b_obs[mb_inds],
                         (initial_lstm_state[0][:, mbenvinds], initial_lstm_state[1][:, mbenvinds]),

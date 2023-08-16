@@ -186,7 +186,7 @@ class CommsLSTMAgent(nn.Module):
         self.actor_logstd = nn.Parameter(torch.zeros(1, np.prod(self.movement_shape))) 
 
 
-    def get_states(self, x, lstm_state, done, message, last_action, last_reward, contact, tim_till_end):
+    def get_states(self, x, lstm_state, done, message, last_action, last_reward, contact, time_till_end):
         if len(x.shape) == 5:
             hidden = self.cnn(x.squeeze().transpose(1, 3))
         else:
@@ -207,7 +207,7 @@ class CommsLSTMAgent(nn.Module):
             hidden = torch.cat([hidden, contact], dim=1)
         
         if self.model_config["time_till_end"]:
-            hidden = torch.cat([hidden, tim_till_end], dim=1)
+            hidden = torch.cat([hidden, time_till_end], dim=1)
         # LSTM logic
         batch_size = lstm_state[0].shape[1]
         hidden = hidden.reshape((-1, batch_size, self.lstm.input_size))
@@ -230,7 +230,7 @@ class CommsLSTMAgent(nn.Module):
         return self.critic(hidden)
 
     def get_action_and_value(self, x, lstm_state, done, message, last_action, last_reward, contact, time_till_end ,action=None):
-        hidden, lstm_state = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact)
+        hidden, lstm_state = self.get_states(x, lstm_state, done, message, last_action, last_reward, contact, time_till_end)
         actions = self.actor_mean(hidden)
 
         # Sample movement actions

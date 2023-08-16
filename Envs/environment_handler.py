@@ -3,12 +3,14 @@ import gymnasium as gym
 from Envs.simple_landmarks import MultiAgentLandmarks, MultiGoalEnv, MultiAgentLandmarksComm
 from Envs.linear_rooms import LinRoomEnv, LinRoomEnvComm, LinLandmarksEnv, LinLandmarksEnvComm
 from Envs.crafting_env import CraftingEnv
-from Envs.coop_crafting import CoopCraftingEnv
+from Envs.coop_crafting import CoopCraftingEnv, CoopCraftingEnvComm
 from Envs.test_crafting import TestCraftingEnv
 from Envs.treasure_hunt import TreasureHunt, TreasureHuntComm
 from typing import Callable, Dict, List, Tuple, Optional, Union, Set, Type
 import torch
 from Utils.train_utils import get_init_tensors
+
+COMM_ENVS = ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm", "CoopCraftingEnvComm"]
 
 class EnvironmentHandler():
     """Handler for the RLLib MultiAgentEnvironementWrapper, which allows for easy vectorization
@@ -20,7 +22,7 @@ class EnvironmentHandler():
         self.vector_env = self.base_env.to_base_env(self._generate_vectorized_env, num_envs=self.env_config["num_envs"])
 
         self.action_space = self.vector_env.action_space
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if config["env_config"]["env_name"] in COMM_ENVS:
             self.observation_space = self.base_env.observation_space["visual_observation_space"]
             self.movement_shape = self.base_env.action_space["actuators_action_space"].shape
             self.message_shape = self.base_env.action_space["message_action_space"].shape
@@ -33,7 +35,7 @@ class EnvironmentHandler():
 
     
     def step(self, inputs):
-        if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if self.env_config["env_name"] in COMM_ENVS:
             movement_actions = inputs["actions"]
             message_actions = inputs["messages"]
             action_message_dict = {e: {"agent_{0}".format(a): {"actuators_action_space": movement_actions[e][a], "message_action_space": message_actions[e][a]} 
@@ -72,7 +74,7 @@ class EnvironmentHandler():
             for env in obs_in.keys():
                 #print(env)
                 if "agent_{0}".format(a) in obs_in[env].keys():
-                    if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+                    if self.env_config["env_name"] in COMM_ENVS:
                         message[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["message_observation_space"])
                         obs[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["visual_observation_space"].copy())
                     else:
@@ -117,8 +119,8 @@ class EnvironmentHandler():
         
         dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
             
-        if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end, infos_dict
+        if self.env_config["env_name"] in COMM_ENVS:
+            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
         else:
             return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
     
@@ -131,14 +133,14 @@ class EnvironmentHandler():
         contact = {"agent_{0}".format(a): torch.zeros((1, self.env_config["num_envs"])) for a in range(self.env_config["num_agents"])}
         time_till_end = {"agent_{0}".format(a): torch.ones((1, self.env_config["num_envs"])) for a in range(self.env_config["num_agents"])}
 
-        if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if self.env_config["env_name"] in COMM_ENVS:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
                 np.array([reset_obs[i]["agent_{0}".format(a)]["visual_observation_space"].copy() for i in range(self.env_config["num_envs"])])) 
                 for a in range(self.env_config["num_agents"])}
             message_dict = {"agent_{0}".format(a): torch.FloatTensor(
                 np.array([reset_obs[i]["agent_{0}".format(a)]["message_observation_space"] for i in range(self.env_config["num_envs"])]))
                 for a in range(self.env_config["num_agents"])}
-            return obs_dict, message_dict, contact, infos_dict
+            return obs_dict, message_dict, contact, time_till_end, infos_dict
         
         else:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(
@@ -153,12 +155,12 @@ class EnvironmentHandler():
         contact = {"agent_{0}".format(a): torch.zeros((1, 1)) for a in range(self.env_config["num_agents"])}
         time_till_end = {"agent_{0}".format(a): torch.ones((1, 1)) for a in range(self.env_config["num_agents"])}
 
-        if self.env_config["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if self.env_config["env_name"] in COMM_ENVS:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]["visual_observation_space"].copy()).unsqueeze(dim=0)
                                             for a in range(self.env_config["num_agents"])}
             message_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)]["message_observation_space"]).unsqueeze(dim=0)
                                             for a in range(self.env_config["num_agents"])}
-            return obs_dict, message_dict, contact, infos_dict
+            return obs_dict, message_dict, contact, time_till_end, infos_dict
         
         else:
             obs_dict = {"agent_{0}".format(a): torch.FloatTensor(reset_obs[idx]["agent_{0}".format(a)].copy()).unsqueeze(dim=0)
@@ -191,6 +193,8 @@ class EnvironmentHandler():
             return LinLandmarksEnvComm(config)
         elif config["env_name"] == "TreasureHuntComm":
             return TreasureHuntComm(config)
+        elif config["env_name"] == "CoopCraftingEnvComm":
+            return CoopCraftingEnvComm(config)
         else:
             return MultiAgentLandmarksComm(config)
         

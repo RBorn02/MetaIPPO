@@ -6,6 +6,8 @@ import csv
 import numpy as np
 from collections.abc import Mapping
 
+COMM_ENVS = ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm", "CoopCraftingEnvComm"]
+
 def build_storage(config, env):
     """Builds a dict for the storage of the rollout data for each policy"""
     num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_envs"])
@@ -138,14 +140,14 @@ def build_storage_from_batch(batch, config):
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
         next_time_till_end[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
 
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
             stage_success_info[agent] = {}
             for s in range(1, config["env_config"]["stages"] + 1):
                 num_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)]["average_success"][0] for i in range(len(batch))])
                 num_stage_success = sum([batch[i][8][agent]["stage_{0}".format(s)]["average_success"][1] for i in range(len(batch))])
                 
 
-                if config["env_config"]["env_name"] in ["CoopCraftingEnv"]:
+                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
                     num_coop_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)]["coop_success"][0] for i in range(len(batch))])
                     num_coop_stage_success = sum([batch[i][8][agent]["stage_{0}".format(s)]["coop_success"][1] for i in range(len(batch))])
 
@@ -161,10 +163,10 @@ def build_storage_from_batch(batch, config):
 
 
     
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if config["env_config"]["env_name"] in COMM_ENVS:
             next_messages[agent] = torch.cat([batch[i][9][agent] for i in range(len(batch))], dim=1)
     
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+    if config["env_config"]["env_name"] in COMM_ENVS:
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
@@ -411,7 +413,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
             for g in range(achieved_goal[a].shape[0]):
                 print("Goal {0}: {1} Achieved; {2} Achieved Successfully".format(g, achieved_goal[a][g].item(), achieved_goal_success[a][g].item()))
 
-        elif config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+        elif config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
             for s in range(1, config["env_config"]["stages"] + 1):
                 stage_successes = stage_success_dict[a]["stage_{0}".format(s)]
                 stage_samples = stages_sampled[a]["stage_{0}".format(s)][-1]
@@ -421,7 +423,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_samples".format(s)] = stage_samples
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_success_rate".format(s)] = stage_success_rate
                 
-                if config["env_config"]["env_name"] in ["CoopCraftingEnv"]:
+                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
                     coop_stage_successes = coop_stage_success_dict[a]["stage_{0}".format(s)]
                     coop_stage_samples = coop_stages_sampled[a]["stage_{0}".format(s)][-1]
                     coop_stage_success_rate = coop_stage_successes / (coop_stage_samples + 1e-8)
@@ -461,7 +463,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
     frames = []
     infos = []
 
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+    if config["env_config"]["env_name"] in COMM_ENVS:
         next_obs, next_messages_in, next_contact, next_time_till_end, _ = env.reset(0)
     else:
         next_obs, next_contact, next_time_till_end, _ = env.reset(0)
@@ -480,7 +482,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
         actions = torch.zeros((1, config["env_config"]["num_agents"]) + env.action_space_shape)
         with torch.no_grad():
             for a in range(config["env_config"]["num_agents"]):
-                if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+                if config["env_config"]["env_name"] in COMM_ENVS:
                     actions[:,a], _, _, _, next_agent_lstm_state = policy_dict["agent_{0}".format(a)].get_action_and_value(
                         next_obs["agent_{0}".format(a)].reshape((1,) + env.observation_space.shape),
                         (next_lstm_state[0][:,a].unsqueeze(dim=1), next_lstm_state[1][:,a].unsqueeze(dim=1)),
@@ -506,7 +508,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
                 next_lstm_state[0][:,a] = next_agent_lstm_state[0].squeeze(dim=1)
                 next_lstm_state[1][:,a] = next_agent_lstm_state[1].squeeze(dim=1)
 
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+        if config["env_config"]["env_name"] in COMM_ENVS:
             input_dict = {}
             movement_actions = actions[:,:, :env.movement_shape[0]]
             message_actions = actions[:,:, env.movement_shape[0]:]
@@ -522,7 +524,7 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
             
         infos.append(info)
         if dones["__all__"]:
-            if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
+            if config["env_config"]["env_name"] in COMM_ENVS:
                 next_obs, next_messages_in, next_contact, next_time_till_end, _ = env.reset(0)
             else:
                 next_obs, next_contact, next_time_till_end, _ = env.reset(0)
