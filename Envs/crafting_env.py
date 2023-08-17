@@ -294,6 +294,81 @@ class InputOutputMachine(ActivableByGem):
             else:
                 y = y - 30
         return (x, y)
+
+
+class TimedCustomRewardOnActivation(RewardOnActivation):
+    def __init__(self, time_limit, **kwargs):
+        super().__init__(reward=0, **kwargs)
+        self._reward = 0
+        self.active = False
+        self.spawned = False
+        
+        self.condition_satisfied = False
+        self.time_limit = time_limit
+        self.activated = False
+
+    def activate(self, activating):
+        list_remove = None
+        elem_add = None
+
+        if isinstance(activating, BaseAgent):
+            self.time_limit = 10
+            self.active = True
+            self._texture_surface.fill(color=(255, 255, 255))
+
+        return list_remove, elem_add
+    
+    def check_if_active(self):
+        if self.active:
+            if self.time_limit > 0:
+                self.activated = True
+                self.time_limit -= 1
+            else:
+                self.active = False
+                self._texture_surface.fill(color=(25, 200, 145))
+        else:
+            self.active = False
+
+class ConditionActiveElement(RewardOnActivation):
+    def __init__(self, out_reward, radius, physical_shape, texture, name, activation_zone, **kwargs):
+
+        super().__init__(
+            #config_key=ElementTypes.REWARD_ON_ACTIVATION,
+            radius=radius,
+            physical_shape=physical_shape,
+            texture=texture,
+            movable=True,
+            graspable=True,
+            traverseable=True,
+            mass=1,
+            reward=0,
+            name=name,
+            **kwargs
+        )
+
+        self.condition_satisfied = False
+        self.activation_zone = activation_zone
+        self.out_reward = out_reward
+    
+    def activate(self, activating):
+        list_remove = None
+        elem_add = None
+
+        if isinstance(activating, BaseAgent):
+            if self.activation_zone.active:
+                self.condition_satisfied = True
+                list_remove = [self]
+                elem_add = [(self.out_reward, self.coordinates)]
+
+            else:
+                pass
+
+        return list_remove, elem_add
+
+    @property
+    def terminate_upon_activation(self):
+        return False
+
  
 
 
@@ -312,6 +387,7 @@ class CraftingEnv(MultiAgentEnv):
         self.seed = config["seed"]
         self.min_prob = config["min_prob"]
         self.max_prob = config["max_prob"]
+        self.new_tasks = config["new_tasks"]
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
@@ -380,6 +456,11 @@ class CraftingEnv(MultiAgentEnv):
                         actions[agent][actuator] = int(torch.round(self.clip_actions(act, act_idx)))
                         act_idx += 1
         
+        #Handle timer for pressure plate
+        for element in self.playground.elements:
+            if isinstance(element, TimedCustomRewardOnActivation):
+                element.check_if_active()
+
         self.engine.step(actions)
         self.engine.update_observations()
         observations = self.process_obs()
@@ -616,7 +697,7 @@ class CraftingEnv(MultiAgentEnv):
         else:
             end_condition_object = "no_object"
         
-
+        
         task_dict["end_condition"] = end_condition
         task_dict["end_condition_object"] = end_condition_object
 
@@ -824,6 +905,39 @@ class CraftingEnv(MultiAgentEnv):
             #condition_obj = lemon.name
             condition_obj = lemon
         
+        elif stage_task_type == "pressure_plate":
+            assert task_out_objects[0] != "no_object"
+            
+            if self.num_agents < 2:
+                time_limit = 200
+            else:
+                time_limit = 10
+
+            pressure_plate =  TimedCustomRewardOnActivation(radius=15, time_limit=time_limit, 
+                                                            physical_shape="rectangle",
+                                                            texture=ColorTexture(color=[25, 200, 145], size=15),
+                                                            name="pressure_plate",
+                                                            temporary=True)
+            
+            object = random.choice(possible_object_types)
+            possible_object_types.remove(object)
+            object_shape = object[0]
+            object_color = object[1]
+
+            pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
+                                    texture=ColorTexture(color=object_color, size=10),
+                                    name="pressure_plate_diamond_{0}".format(stage),
+                                    activation_zone=pressure_plate,
+                                    temporary=True)
+            
+            needed_in_objects.append(pressure_plate_diamond)
+            for obj in task_out_objects[1:]:
+                if obj != "no_object":
+                    needed_in_objects.append(obj)  
+
+            needed_env_object.append(pressure_plate)
+            condition_obj = pressure_plate_diamond
+        
         else:
             assert task_out_objects[0] != "no_object"
             in_out_machine = InputOutputMachine(physical_shape="rectangle", radius=15,
@@ -856,27 +970,45 @@ class CraftingEnv(MultiAgentEnv):
     def sample_stage_task(self, stage, num_stages, end_condition, assigned_stage_tasks):
         if stage == 1 and num_stages > 1:
             if "lemon_hunt" not in assigned_stage_tasks:
-                stage_task = random.choice(["activate_landmarks", "crafting"])
+                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
+                    stage_task = random.choice(["activate_landmarks", "pressure_plate", "crafting"])
+                else:
+                    stage_task = random.choice(["activate_landmarks", "crafting"])
             else:
                 if "in_out_machine" not in assigned_stage_tasks:
                     stage_task = "in_out_machine"
                 else:
-                    stage_task = "crafting"
+                    if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
+                        stage_task = random.choice(["crafting", "pressure_plate"])
+                    else:
+                        stage_task = "crafting"
         elif stage == num_stages and num_stages > 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
             else:
-                stage_task = random.choice(["crafting", "in_out_machine"])
+                if self.new_tasks:
+                    stage_task = random.choice(["crafting", "pressure_plate", "in_out_machine"])
+                else:
+                    stage_task = random.choice(["crafting", "in_out_machine"])
         elif stage == num_stages and num_stages == 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["activate_landmarks", "lemon_hunt"])
             else:
-                stage_task = "activate_landmarks"
+                if self.new_tasks:
+                    stage_task = random.choice(["activate_landmarks", "pressure_plate"])
+                else:
+                    stage_task = "activate_landmarks"
         else:
             if "in_out_machine" not in assigned_stage_tasks:
-                stage_task = random.choice(["crafting", "in_out_machine"])
+                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
+                    stage_task = random.choice(["in_out_machine", "pressure_plate", "crafting"])
+                else:
+                    stage_task = random.choice(["crafting", "in_out_machine"])
             else:
-                stage_task = random.choice(["crafting"])
+                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
+                    stage_task = random.choice(["crafting", "pressure_plate"])
+                else:
+                    stage_task = random.choice(["crafting"])
         
         return stage_task
     
