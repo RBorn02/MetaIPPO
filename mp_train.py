@@ -55,6 +55,8 @@ parser.add_argument("--coop_chance", type=float, default=1.0,
                     help="Chance of cooperative goal")
 parser.add_argument("--stages", type=int, default=3,
                     help="Number of stages in the crafting environment")
+parser.add_argument("--new_tasks", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+                    help="Toggles whether to also use new subtasks for task tree construction")
 parser.add_argument("--single_goal", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Only sample a goal once per episode")
 parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
