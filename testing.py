@@ -51,6 +51,8 @@ parser.add_argument("--coop_chance", type=float, default=1.0,
                     help="Chance of cooperative goal")
 parser.add_argument("--stages", type=int, default=3,
                     help="Number of stages in the crafting environment")
+parser.add_argument("--new_tasks", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+                    help="Toggles whether to use new subtasks for task tree building")
 parser.add_argument("--single_goal", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Only sample a goal once per episode")
 parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
@@ -193,6 +195,13 @@ if __name__ == "__main__":
     stages_success_info = {}
     achieved_goal = {}
     achieved_goal_success = {}
+    coop_stages_successes = {}
+    coop_stages_sampled = {}
+    single_stages_successes = {}
+    single_stages_sampled = {}
+    stages_rolling_success_rate = {}
+    coop_stages_rolling_success_rate = {}
+    single_stages_rolling_success_rate = {}
     
     for a in range(config["env_config"]["num_agents"]):
         completed_episodes["agent_{0}".format(a)] = []
@@ -205,10 +214,19 @@ if __name__ == "__main__":
         stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
         stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
         stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        coop_stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        coop_stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        single_stages_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        single_stages_sampled["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        coop_stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
+        single_stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
         success_rate["agent_{0}".format(a)] = 0
         achieved_goal["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"])) 
         achieved_goal_success["agent_{0}".format(a)] = torch.zeros((config["env_config"]["num_landmarks"]))
-        stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): (0, 0) for s in range(1, config["env_config"]["stages"] + 1)} 
+        stages_success_info["agent_{0}".format(a)] = {"stage_{0}".format(s): {"average_success" : (0, 0),
+                                                                              "coop_success" : (0, 0),
+                                                                              "single_success": (0, 0)} for s in range(1, config["env_config"]["stages"]+1)} 
 
     num_steps = config["rollout_steps"] // config["env_config"]["num_envs"]
 
@@ -325,12 +343,23 @@ if __name__ == "__main__":
 
             success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
 
-            if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
+            if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
                 for s in range(1, config["env_config"]["stages"]+1):
                     num_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                     num_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
-                    prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1]
-                    stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success + prev_stage_success)
+                    prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"][1]
+                    stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"] = (num_stage_sampled, num_stage_success + prev_stage_success)
+
+                    if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                        num_coop_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["coop_success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
+                        num_coop_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["coop_success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
+                        prev_coop_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"][1]
+                        stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"] = (num_coop_stage_sampled, num_coop_stage_success + prev_coop_stage_success)
+
+                        num_single_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["single_success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
+                        num_single_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["single_success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
+                        prev_single_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["single_success"][1]
+                        stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["single_success"] = (num_single_stage_sampled, num_single_stage_success + prev_single_stage_success)
 
 
             for e in range(config["env_config"]["num_envs"]):
@@ -375,7 +404,18 @@ if __name__ == "__main__":
                                             stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][1])
                 stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                             stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)][0])
-    
+                
+                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                    coop_stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"][1])
+                    coop_stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"][0])
+                    single_stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["single_success"][1])
+                    single_stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
+                                                stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["single_success"][0])
+
+
     total_completed = {}
     total_reward = {}
     total_stage_successes = {}

@@ -704,6 +704,15 @@ class CoopCraftingEnv(MultiAgentEnv):
         possible_agent_colors = [(255, 255, 255), (170, 170, 170), (0, 0, 255)]
         agent_ls = []
         for i in range(num_agents):
+            if agent_name is not None:
+                if agent_name == "agent_0":
+                    color = (255, 255, 255)
+                elif agent_name == "agent_1":
+                    color = (170, 170, 170)
+                else:
+                    assert False, "Agent name not recognized"
+            else:
+                color = possible_agent_colors[i]
             agent = BaseAgent(
             controller=External(),
             radius=12,
@@ -711,7 +720,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             interactive=True, 
             name="agent_{0}".format(i) if agent_name is None else agent_name,
             texture=UniqueCenteredStripeTexture(size=10,
-                color=possible_agent_colors[i], color_stripe=(0,0,0), size_stripe=4),
+                color=color, color_stripe=(0,0,0), size_stripe=4),
             temporary=True)
             #Makes agents traversable
             categories = 2**3
