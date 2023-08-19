@@ -237,7 +237,7 @@ class Lemon(ContactElement):
     
 class InputOutputMachine(ActivableByGem):
     def __init__(self, radius, physical_shape, texture, name, reward, condition_obj=True, movable=False,
-                  graspable=False, **kwargs):
+                  graspable=False, activation_zone=None, **kwargs):
 
         super().__init__(
             config_key=ElementTypes.CHEST,
@@ -255,6 +255,7 @@ class InputOutputMachine(ActivableByGem):
         self.condition_obj = condition_obj
         self.reward = reward
         self.condition_satisfied = False
+        self.activation_zone = activation_zone
 
     def _set_pm_collision_type(self):
         for pm_shape in self._pm_shapes:
@@ -266,11 +267,19 @@ class InputOutputMachine(ActivableByGem):
         elem_add = None
 
         if activating.elem_activated is self:
-            self.condition_satisfied = True
-            if self.condition_obj:
-                coordinates = self.get_spawn_coordinates()
-                elem_add = [(self.reward, coordinates)]
-                list_remove = [activating]
+            if self.activation_zone is not None:
+                if self.activation_zone.active:
+                    self.condition_satisfied = True
+                    list_remove = [activating]
+                    elem_add = [(self.reward, self.coordinates)]
+                else:
+                    pass
+            else:
+                self.condition_satisfied = True
+                if self.condition_obj:
+                    coordinates = self.get_spawn_coordinates()
+                    elem_add = [(self.reward, coordinates)]
+                    list_remove = [activating]
 
 
         return list_remove, elem_add
@@ -324,7 +333,7 @@ class TimedCustomRewardOnActivation(RewardOnActivation):
                 self.time_limit -= 1
             else:
                 self.active = False
-                self._texture_surface.fill(color=(25, 200, 145))
+                self._texture_surface.fill(color=(25, 100, 145))
         else:
             self.active = False
 
@@ -667,7 +676,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                 else:
                     infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
     
-            rewards[agent.name] = 0.1 * reward**2
+            rewards[agent.name] = 0.1 * reward ** 2
 
             if second_task_dict is not None:
                 if agent.name == "agent_0":
@@ -980,7 +989,7 @@ class CoopCraftingEnv(MultiAgentEnv):
 
             pressure_plate =  TimedCustomRewardOnActivation(radius=15, time_limit=time_limit, 
                                                             physical_shape="rectangle",
-                                                            texture=ColorTexture(color=[25, 200, 145], size=15),
+                                                            texture=ColorTexture(color=[25, 100, 145], size=15),
                                                             name="pressure_plate",
                                                             temporary=True)
             
@@ -989,11 +998,23 @@ class CoopCraftingEnv(MultiAgentEnv):
             object_shape = object[0]
             object_color = object[1]
 
-            pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
+            pressure_plate_in_out = InputOutputMachine(physical_shape="rectangle", radius=15,
+                            texture=ColorTexture(color=[20, 40, 170], size=15),
+                            condition_obj=True,
+                            activation_zone=pressure_plate,
+                            name="in_out_machine_pressure_plate", reward=task_out_objects[0],
+                            temporary=True)
+            
+            pressure_plate_diamond = Diamond(pressure_plate_in_out, physical_shape=object_shape, radius=10,
                                     texture=ColorTexture(color=object_color, size=10),
                                     name="pressure_plate_diamond_{0}".format(stage),
-                                    activation_zone=pressure_plate,
                                     temporary=True)
+
+            #pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
+            #                        texture=ColorTexture(color=object_color, size=10),
+            #                        name="pressure_plate_diamond_{0}".format(stage),
+            #                        activation_zone=pressure_plate,
+            #                        temporary=True)
             
             needed_in_objects.append(pressure_plate_diamond)
             for obj in task_out_objects[1:]:
@@ -1001,7 +1022,8 @@ class CoopCraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(obj)  
 
             needed_env_object.append(pressure_plate)
-            condition_obj = pressure_plate_diamond  
+            needed_env_object.append(pressure_plate_in_out)
+            condition_obj = pressure_plate_in_out 
         
         else:
             assert task_out_objects[0] != "no_object"
@@ -1040,21 +1062,18 @@ class CoopCraftingEnv(MultiAgentEnv):
                 else:
                     stage_task = random.choice(["activate_landmarks", "crafting"])
             else:
-                if "in_out_machine" not in assigned_stage_tasks:
-                    stage_task = "in_out_machine"
+                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
+                    stage_task = "pressure_plate"
                 else:
-                    if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                        stage_task = random.choice(["crafting", "pressure_plate"])
-                    else:
-                        stage_task = "crafting"
+                    stage_task = "crafting"
         elif stage == num_stages and num_stages > 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
             else:
                 if self.new_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate", "in_out_machine"])
+                    stage_task = random.choice(["crafting", "pressure_plate"])
                 else:
-                    stage_task = random.choice(["crafting", "in_out_machine"])
+                    stage_task = random.choice(["crafting"])
         elif stage == num_stages and num_stages == 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["activate_landmarks", "lemon_hunt"])
@@ -1066,15 +1085,15 @@ class CoopCraftingEnv(MultiAgentEnv):
         else:
             if "in_out_machine" not in assigned_stage_tasks:
                 if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["in_out_machine", "pressure_plate", "crafting"])
+                    stage_task = random.choice(["pressure_plate", "crafting"])
                 else:
-                    stage_task = random.choice(["crafting", "in_out_machine"])
+                    stage_task = random.choice(["crafting"])
             else:
                 if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
                     stage_task = random.choice(["crafting", "pressure_plate"])
                 else:
                     stage_task = random.choice(["crafting"])
-        
+
         return stage_task
     
     def build_coordinates(self):
