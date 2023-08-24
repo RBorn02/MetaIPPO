@@ -67,7 +67,7 @@ class LSTMAgent(nn.Module):
 
     def get_states(self, x, lstm_state, done, last_action, last_reward, contact, tim_till_end):
         if len(x.shape) == 5:
-            hidden = self.cnn(x.squeeze().transpose(1, 3))
+            hidden = self.cnn(x.squeeze(0).transpose(1, 3))
         else:
             hidden = self.cnn(x.transpose(1, 3))
         hidden = F.relu(self.linear_in(hidden))

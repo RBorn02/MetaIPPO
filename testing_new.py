@@ -19,10 +19,10 @@ from Utils.train_utils import *
 
 parser = ArgumentParser()
 
+parser.add_argument("--pretrained", type=str, required=True,
+                    help="Path to pretrained model")
 parser.add_argument("--config", default=None,
                     help="Optional path to the config yaml")
-parser.add_argument("--pretrained", default=None, type=str,
-                    help="Optional path to the pretrained models")
 parser.add_argument("--debug", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles debug mode, disables logging")
 parser.add_argument("--env_name", type=str, default="MultiAgentLandmarks",
@@ -101,7 +101,7 @@ parser.add_argument("--max_grad_norm", type=float, default=0.5,
                     help="the maximum norm for the gradient clipping")
 parser.add_argument("--target_kl", type=float, default=None,
                     help="the target KL divergence threshold")
-parser.add_argument("--record_video_every", type=int, default=10,
+parser.add_argument("--record_video_every", type=int, default=1,
                     help="Record a video every n episodes")
 
 # Model Specific arguments
@@ -111,9 +111,9 @@ parser.add_argument("--channel_2", type=int, default=32,
                     help="Number of channels in the second convolutional layer")
 parser.add_argument("--channel_3", type=int, default=32,
                     help="Number of channels in the third convolutional layer")
-parser.add_argument("--lstm_in_size", type=int, default=64,
+parser.add_argument("--lstm_in_size", type=int, default=256,
                     help="Size of the LSTM hidden state")
-parser.add_argument("--lstm_hidden_size", type=int, default=64,
+parser.add_argument("--lstm_hidden_size", type=int, default=256,
                     help="Size of the LSTM hidden state")
 parser.add_argument("--lstm_layers", type=int, default=1,
                     help="Number of LSTM layers")
@@ -123,14 +123,26 @@ parser.add_argument("--actor_hidden_size", type=int, default=64,
                     help="Size of the actor hidden state")
 parser.add_argument("--use_last_action_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Toggles whether or not to use the last action and reward as input to the LSTM")
-parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use contact information as input to the LSTM")
 parser.add_argument("--one_hot_message", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use one hot encoding for the message")
 parser.add_argument("--time_till_end", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use time till end as input to the LSTM (Only Crafting Env)")
+
+# Test specific arguments
+parser.add_argument("--test_shape", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Test generalization to different shapes")
+parser.add_argument("--test_color", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Test generalization to different colors (if both shape and color are true, test generalization to both)")
+parser.add_argument("--all_test_objects", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Test generalization to all objects in the environment")
+parser.add_argument("--video_path", type=str, default=None,
+                    help="Path to save the video to")
 parser.add_argument("--run_name", type=str, default=None,
-                    help="Name of the run")
+                    help="Option to add information to evaluation run name")
+parser.add_argument("--record_video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
+                    help="Record a video of the evaluation run")
 
 
 
@@ -266,14 +278,14 @@ def rollout(pid, policy_dict, train_queue, done, config):
 
                     success_rate["agent_{0}".format(a)] += torch.sum(infos["agent_{0}".format(a)]["success"]).item()
 
-                    if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
+                    if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
                         for s in range(1, config["env_config"]["stages"]+1):
                             num_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                             num_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
                             prev_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"][1]
                             stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"] = (num_stage_sampled, num_stage_success + prev_stage_success)
 
-                            if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                            if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm", "TestCraftingEnv"]:
                                 num_coop_stage_sampled = torch.sum(torch.where(infos["agent_{0}".format(a)]["coop_success_stage_{0}".format(s)] >= 0, 1.0, 0.0)).item()
                                 num_coop_stage_success = torch.sum(torch.where(infos["agent_{0}".format(a)]["coop_success_stage_{0}".format(s)] == 1, 1.0, 0.0)).item()
                                 prev_coop_stage_success = stages_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"][1]
@@ -366,8 +378,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.batch_size = int(args.rollout_steps)
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
+    
 
     config = build_config(args)
+    config["env_config"]["test"] = True
+    config["env_config"]["test_shape"] = args.test_shape
+    config["env_config"]["test_color"] = args.test_color
+    config["env_config"]["all_test_objects"] = args.all_test_objects
+    config["video_path"] = args.video_path
+    config["record_video"] = args.record_video
     device = config["device"]
 
     #Build the environemnt
@@ -382,15 +401,11 @@ if __name__ == "__main__":
                                                                             config["lr"], eps=1e-5)} 
                             for a in range(config["env_config"]["num_agents"])}
 
-    #Load the pretrained models if specified
-    if config["pretrained"] is not None:
-        for a in range(config["env_config"]["num_agents"]):
-            agent_dict["agent_{0}".format(a)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
-            optimizer_dict["agent_{0}".format(a)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
-            print("Loaded pretrained model for agent {0}".format(a))
-
-        #Initiate the learning rate if pretrained
-        lrnow = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
+    #Load the pretrained models 
+    for a in range(config["env_config"]["num_agents"]):
+        agent_dict["agent_{0}".format(a)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
+        optimizer_dict["agent_{0}".format(a)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
+        print("Loaded pretrained model for agent {0}".format(a))
 
     #Build the policies
     policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
@@ -412,11 +427,11 @@ if __name__ == "__main__":
 
         #Tracking
         if config["run_name"] is None:
-            run_name = "PPO_{0}_{1}_{2}_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
-                                                config["env_config"]["coop_chance"], time.time())
+            run_name = "PPO_{0}_{1}_{2}_Evaluation".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
+                                                config["env_config"]["coop_chance"])
         else:
-            run_name = config["run_name"] + "_{0}".format(config["seed"])
-            
+            run_name = "PPO_{0}_{1}_{2}_Evaluation_{3}".format(config["env_config"]["env_name"], config["env_config"]["num_agents"],
+                                                config["env_config"]["coop_chance"], config["run_name"])
         if not config["debug"]:
             wandb.init(
                 project="MetaIPPO",
@@ -430,11 +445,11 @@ if __name__ == "__main__":
             writer = SummaryWriter(f"runs/{run_name}")
             writer.add_text(
             "hyperparameters",
-            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in config.items()])),
+            "|param|value|\n|-|-|\n%s" % ("\n".join([f"|{key}|{value}|" for key, value in config["env_config"].items()])),
             )
 
             current_path = os.path.dirname(os.path.abspath(__file__))
-            runs_path = os.path.join(current_path, "PPO_Runs")
+            runs_path = os.path.join(current_path, "PPO_Evaluation")
             if not os.path.exists(runs_path):
                 os.mkdir(runs_path)
             run_path = os.path.join(runs_path, run_name)
@@ -478,10 +493,9 @@ if __name__ == "__main__":
             single_stages_rolling_success_rate["agent_{0}".format(a)] = {"stage_{0}".format(s): [] for s in range(1, config["env_config"]["stages"] + 1)}
 
 
-        #Start the game
         global_step = 0
         
-        num_updates = config["total_steps"] // config["batch_size"]
+        num_updates = (config["num_workers"] * config["env_config"]["num_envs"] * config["env_config"]["timelimit"]) // config["rollout_steps"]
         update = 1
 
         #Start the workers
@@ -508,44 +522,7 @@ if __name__ == "__main__":
                         storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
                     else:
                         storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
-
-                    #Compute the advantages for each policy
-                    for a in range(config["env_config"]["num_agents"]):
-                        advantages, returns = policy_dict["agent_{0}".format(a)].get_advantages( 
-                                                                                storage["agent_{0}".format(a)],
-                                                                                next_obs["agent_{0}".format(a)],
-                                                                                next_dones["agent_{0}".format(a)],
-                                                                                next_contact["agent_{0}".format(a)],
-                                                                                next_time_till_end["agent_{0}".format(a)],
-                                                                                next_messages_in["agent_{0}".format(a)] if config["env_config"]["env_name"] in COMM_ENVS else None,
-                                                                                )
-                        
-                        storage["agent_{0}".format(a)]["advantages"] = advantages
-                        storage["agent_{0}".format(a)]["returns"] = returns
-
-                    if args.anneal_lr:
-                        frac = 1.0 - (update - 1.0) / num_updates
-                        lrnow = frac * config["lr"]
-                        for a in range(config["env_config"]["num_agents"]):
-                            policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
-            
-                    #Update the policy parameters
-                    for a in range(config["env_config"]["num_agents"]):
-                        loss, pg_loss, value_loss, entropy_loss, explained_variance, clip_fracs =  policy_dict["agent_{0}".format(a)].train(storage["agent_{0}".format(a)])
-                        print("Agent_{0} loss total: {1}; pg loss: {2}; value loss: {3}; entropy loss: {4}; explained variance: {5}; clip fracs: {6}".format(a, loss, pg_loss, 
-                                                                                                                            value_loss, entropy_loss, explained_variance, clip_fracs))
-                        if not config["debug"]:
-                            wandb.log({"agent_{0}_loss".format(a): loss,
-                                "agent_{0}_pg_loss".format(a): pg_loss,
-                                "agent_{0}_value_loss".format(a): value_loss,
-                                "agent_{0}_entropy_loss".format(a): entropy_loss,
-                                "agent_{0}_explained_variance".format(a): explained_variance,
-                                "agent_{0}_clip_fracs".format(a): clip_fracs})
-                        
-                    print("Time to update policy: {0}".format(time.time() - start))
-                    
-
-                    #Save the models for the agents if the sum of the average rewards is greater than the best average reward
+                                
                     if not config["debug"]:
                         update_ratio = ((config["env_config"]["timelimit"] * config["env_config"]["num_envs"] * config["num_workers"]) // config["rollout_steps"])
                         for a in range(config["env_config"]["num_agents"]):
@@ -554,14 +531,14 @@ if __name__ == "__main__":
                             rewards["agent_{0}".format(a)].append(torch.sum(storage["agent_{0}".format(a)]["rewards"]).item())
                             successes["agent_{0}".format(a)].append(success_rate["agent_{0}".format(a)])
                             
-                            if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
+                            if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
                                 for s in range(1, config["env_config"]["stages"] + 1):
                                     stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                                                 stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"][1])
                                     stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                                                 stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["average_success"][0])
                                     
-                                    if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                                    if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm", "TestCraftingEnv"]:
                                         coop_stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)].append(
                                                                     stage_success_info["agent_{0}".format(a)]["stage_{0}".format(s)]["coop_success"][1])
                                         coop_stages_sampled["agent_{0}".format(a)]["stage_{0}".format(s)].append(
@@ -584,11 +561,11 @@ if __name__ == "__main__":
                                 total_reward["agent_{0}".format(a)] = sum(rewards["agent_{0}".format(a)][-update_ratio:])
                                 total_successes["agent_{0}".format(a)] = sum(successes["agent_{0}".format(a)][-update_ratio:])
                                 
-                                if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
+                                if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
                                     total_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
                                                                                 for s in range(1, config["env_config"]["stages"] + 1)}
                                     
-                                    if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                                    if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm", "TestCraftingEnv"]:
                                         total_coop_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(coop_stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
                                                                                     for s in range(1, config["env_config"]["stages"] + 1)}
                                         total_single_stage_successes["agent_{0}".format(a)] = {"stage_{0}".format(s): sum(single_stages_successes["agent_{0}".format(a)]["stage_{0}".format(s)][-update_ratio:])
@@ -615,13 +592,13 @@ if __name__ == "__main__":
                                         "agent_{0}_rewards".format(a): agent_info["reward"]}
                                 
                                 #Log info for the different task stages in Crafting Env
-                                if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
+                                if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
                                     for s in range(1, config["env_config"]["stages"] + 1):
                                         log_dict["agent_{0}_stage_{1}_samples".format(a, s)] = agent_info["stage_{0}_samples".format(s)]
                                         log_dict["agent_{0}_stage_{1}_successes".format(a, s)] = agent_info["stage_{0}_successes".format(s)]
                                         log_dict["agent_{0}_stage_{1}_success_rate".format(a, s)] = agent_info["stage_{0}_success_rate".format(s)]
                                 
-                                        if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                                        if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm", "TestCraftingEnv"]:
                                             log_dict["agent_{0}_stage_{1}_coop_samples".format(a, s)] = agent_info["stage_{0}_coop_samples".format(s)]
                                             log_dict["agent_{0}_stage_{1}_coop_successes".format(a, s)] = agent_info["stage_{0}_coop_successes".format(s)]
                                             log_dict["agent_{0}_stage_{1}_coop_success_rate".format(a, s)] = agent_info["stage_{0}_coop_success_rate".format(s)]
@@ -631,22 +608,9 @@ if __name__ == "__main__":
                                             log_dict["agent_{0}_stage_{1}_single_success_rate".format(a, s)] = agent_info["stage_{0}_single_success_rate".format(s)]
 
                                 wandb.log(log_dict)
-
-                            if sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])]) > prev_best:
-                                prev_best = sum([best_average_reward["agent_{0}".format(a)] for a in range(config["env_config"]["num_agents"])])
-                                for a in range(config["env_config"]["num_agents"]):
-                                    save_path = os.path.join(run_path, "models".format(prev_best, update, a))
-                                    if not os.path.exists(save_path):
-                                        os.makedirs(save_path)
-                                    if os.path.exists(save_path + "/agent_{0}_model.pt".format(a)):
-                                        os.remove(save_path + "/agent_{0}_model.pt".format(a))
-                                    torch.save({"model": policy_dict["agent_{0}".format(a)].agent.state_dict(),
-                                                "optimizer": policy_dict["agent_{0}".format(a)].optimizer.state_dict()}, 
-                                                save_path + "/agent_{0}_model.pt".format(a))
-                                print("Saved models for agents with average reward {0}".format(prev_best)) 
                                                                                                                 
                             #Record a video every n updates
-                            if (update * update_ratio) % config["record_video_every"] == 0:
+                            if config["record_video"] and (update * update_ratio) % config["record_video_every"] == 0:
                                 video_path = os.path.join(run_path, "Videos/")
                                 
                                 video_config = {}
@@ -657,18 +621,20 @@ if __name__ == "__main__":
 
                                 if not os.path.exists(video_path):
                                     os.makedirs(video_path)
-                                record_video(video_config, video_env, policy_dict, 4, video_path, update)
+                                record_video(video_config, video_env, policy_dict, 10, video_path, update)
                                 print("Recorded video for update {0}".format(update))                                                                
                     
-
-                    #Restart the workers
+                    
+                   #Restart the workers
                     for e in range(config["num_workers"]):
                         done[e] = 0
                     
                     
                     update += 1
-                    if update >= num_updates:
-                        print("Training finished")
+                    if update > num_updates:
+                        for child in mp.active_children():
+                            child.terminate()
+                        print("Evaluation finished")
                         break
                 else:
                     continue

@@ -390,6 +390,7 @@ class TestCraftingEnv(MultiAgentEnv):
         self.test_color = config["test_color"]
         self.all_test_objects = config["all_test_objects"]
         self.stages = config["stages"]
+        self.new_tasks = config["new_tasks"]
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
@@ -447,16 +448,6 @@ class TestCraftingEnv(MultiAgentEnv):
             self.success_rate_dict["stage_{0}".format(s)] = {"agent_0": [False], "agent_1": [False]}
 
         self.last_coop = False
-        
-
-    def process_obs(self):
-        obs = {}
-        for agent in self._active_agents:
-            obs[agent.name] = list(agent.observations.values())[0]
-        return obs
-
-        self.last_coop = False
-        
 
     def process_obs(self):
         obs = {}
@@ -555,13 +546,13 @@ class TestCraftingEnv(MultiAgentEnv):
                             ("rectangle", [255, 255, 0]), ("rectangle", [0, 255, 255]), ("rectangle", [255, 0, 255])]
         
         if self.test_shape and self.test_color:
-            test_objects = new_colors_and_shapes
+            objects = new_colors_and_shapes
         elif self.test_color:
-            test_objects = new_colors
+            objects = new_colors
         elif self.test_shape:
-            test_objects = new_shapes
+            objects = new_shapes
         else:
-            assert False, "No test object specified"
+            objects = possible_objects
         
         end_conditions = ["no_object", "object_exists"]
 
@@ -570,7 +561,7 @@ class TestCraftingEnv(MultiAgentEnv):
         if self.coop:
             self.spawn_agents(element_coordinates, 2, self.shared_playground)
             #stage = self.stage_scheduler() #Change later but for now we only use 3 stages and sampling does not work for non coop
-            self.task_dict = self.sample_task_tree(3, end_conditions, possible_objects, test_objects, element_coordinates, 
+            self.task_dict = self.sample_task_tree(self.stages, end_conditions, objects, element_coordinates, 
                                               env_coordinates, 2, playground=self.shared_playground)
             self._active_agents = self.shared_playground.agents.copy()
 
@@ -579,11 +570,11 @@ class TestCraftingEnv(MultiAgentEnv):
             self.spawn_agents(element_coordinates, 1, self.agent_1_playground, "agent_1")
 
             #stage_agent_0 = self.stage_scheduler()
-            self.task_dict_agent_0 = self.sample_task_tree(self.stages, end_conditions, possible_objects.copy(), test_objects.copy(), element_coordinates.copy(), 
+            self.task_dict_agent_0 = self.sample_task_tree(self.stages, end_conditions, objects.copy(), element_coordinates.copy(), 
                                               env_coordinates.copy(), 1, playground=self.agent_0_playground, agent_name="agent_0")
             
             #stage_agent_1 = self.stage_scheduler()
-            self.task_dict_agent_1 = self.sample_task_tree(self.stages, end_conditions, possible_objects.copy(), test_objects.copy(), element_coordinates.copy(),
+            self.task_dict_agent_1 = self.sample_task_tree(self.stages, end_conditions, objects.copy(), element_coordinates.copy(),
                                                 env_coordinates.copy(), 1, playground=self.agent_1_playground, agent_name="agent_1")
             self._active_agents = []
             self._active_agents.append(self.agent_0_playground.agents[0])
@@ -738,7 +729,6 @@ class TestCraftingEnv(MultiAgentEnv):
                     assert False, "Agent name not recognized"
             else:
                 color = possible_agent_colors[i]
-
             agent = BaseAgent(
             controller=External(),
             radius=12,
@@ -763,11 +753,10 @@ class TestCraftingEnv(MultiAgentEnv):
             agent.add_sensor(TopdownSensor(agent.base_platform, fov=360, resolution=self.resolution, max_range=160, normalize=True))
             playground.add_agent(agent, possible_agent_samplers[idx], allow_overlapping=True, max_attempts=10)
     
-    def sample_task_tree(self, num_stages, end_conditions, possible_objects, test_objects, element_coordinates, 
+    def sample_task_tree(self, num_stages, end_conditions, possible_objects, element_coordinates, 
                          env_coordinates, num_agents, num_distractors=0, playground=None, agent_name=None):
         
         possible_object_types = possible_objects.copy()
-        test_object_types = test_objects.copy()
 
         task_dict = {}
         end_condition = random.choice(end_conditions)
@@ -794,7 +783,7 @@ class TestCraftingEnv(MultiAgentEnv):
             stage_task_type = self.sample_stage_task(s, num_stages, end_condition, assigned_stage_tasks)
             assigned_stage_tasks.append(stage_task_type)
             needed_in_objects, needed_env_object, condition_obj = self.task_creator(stage_task_type, task_out_objects, possible_object_types, 
-                                                                                    test_object_types, s, num_agents, agent_name=agent_name)
+                                                                                    s, num_agents, agent_name=agent_name)
             needed_env_objects.append(needed_env_object)
             task_dict["stage_{0}".format(s)] = {}
             task_dict["stage_{0}".format(s)]["task"] = stage_task_type

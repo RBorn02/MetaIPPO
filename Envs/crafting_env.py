@@ -915,7 +915,7 @@ class CraftingEnv(MultiAgentEnv):
 
             pressure_plate =  TimedCustomRewardOnActivation(radius=15, time_limit=time_limit, 
                                                             physical_shape="rectangle",
-                                                            texture=ColorTexture(color=[25, 200, 145], size=15),
+                                                            texture=ColorTexture(color=[25, 100, 145], size=15),
                                                             name="pressure_plate",
                                                             temporary=True)
             
@@ -924,11 +924,23 @@ class CraftingEnv(MultiAgentEnv):
             object_shape = object[0]
             object_color = object[1]
 
-            pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
+            pressure_plate_in_out = InputOutputMachine(physical_shape="rectangle", radius=15,
+                            texture=ColorTexture(color=[20, 40, 170], size=15),
+                            condition_obj=True,
+                            activation_zone=pressure_plate,
+                            name="in_out_machine_pressure_plate", reward=task_out_objects[0],
+                            temporary=True)
+            
+            pressure_plate_diamond = Diamond(pressure_plate_in_out, physical_shape=object_shape, radius=10,
                                     texture=ColorTexture(color=object_color, size=10),
                                     name="pressure_plate_diamond_{0}".format(stage),
-                                    activation_zone=pressure_plate,
                                     temporary=True)
+
+            #pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
+            #                        texture=ColorTexture(color=object_color, size=10),
+            #                        name="pressure_plate_diamond_{0}".format(stage),
+            #                        activation_zone=pressure_plate,
+            #                        temporary=True)
             
             needed_in_objects.append(pressure_plate_diamond)
             for obj in task_out_objects[1:]:
@@ -936,7 +948,8 @@ class CraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(obj)  
 
             needed_env_object.append(pressure_plate)
-            condition_obj = pressure_plate_diamond
+            needed_env_object.append(pressure_plate_in_out)
+            condition_obj = pressure_plate_in_out 
         
         else:
             assert task_out_objects[0] != "no_object"

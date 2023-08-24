@@ -140,14 +140,14 @@ def build_storage_from_batch(batch, config):
         next_contact[agent] = torch.cat([batch[i][6][agent] for i in range(len(batch))], dim=1)
         next_time_till_end[agent] = torch.cat([batch[i][7][agent] for i in range(len(batch))], dim=1)
 
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv"]:
+        if config["env_config"]["env_name"] in ["CraftingEnv", "CoopCraftingEnvComm", "CoopCraftingEnv", "TestCraftingEnv"]:
             stage_success_info[agent] = {}
             for s in range(1, config["env_config"]["stages"] + 1):
                 num_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)]["average_success"][0] for i in range(len(batch))])
                 num_stage_success = sum([batch[i][8][agent]["stage_{0}".format(s)]["average_success"][1] for i in range(len(batch))])
                 
 
-                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm", "TestCraftingEnv"]:
                     num_coop_stage_sampled = sum([batch[i][8][agent]["stage_{0}".format(s)]["coop_success"][0] for i in range(len(batch))])
                     num_coop_stage_success = sum([batch[i][8][agent]["stage_{0}".format(s)]["coop_success"][1] for i in range(len(batch))])
 
@@ -325,6 +325,7 @@ def build_config(args):
         config["num_workers"] = args.num_workers
         config["record_video_every"] = args.record_video_every
         config["debug"] = args.debug
+        config["run_name"] = args.run_name
 
         config["model_config"] = {}
         config["model_config"]["lstm_layers"] = args.lstm_layers
@@ -424,7 +425,7 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_samples".format(s)] = stage_samples
                 end_of_episode_info["agent_{0}".format(id)]["stage_{0}_success_rate".format(s)] = stage_success_rate
                 
-                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm"]:
+                if config["env_config"]["env_name"] in ["CoopCraftingEnv", "CoopCraftingEnvComm", "TestCraftingEnv"]:
                     coop_stage_successes = coop_stage_success_dict[a]["stage_{0}".format(s)]
                     coop_stage_samples = coop_stages_sampled[a]["stage_{0}".format(s)][-1]
                     coop_stage_success_rate = coop_stage_successes / (coop_stage_samples + 1e-8)
