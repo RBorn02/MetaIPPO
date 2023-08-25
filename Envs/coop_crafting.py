@@ -94,7 +94,7 @@ class Chest(ActivableByGem):
     
     
 class CustomRewardOnActivation(RewardOnActivation):
-    def __init__(self, agent_name, out_reward, **kwargs):
+    def __init__(self, agent_name, out_reward, timelimit, **kwargs):
         super().__init__(reward=0, **kwargs)
         self.agent_name = agent_name
         self._reward = 0
@@ -107,6 +107,7 @@ class CustomRewardOnActivation(RewardOnActivation):
             self.out_reward = None
         
         self.condition_satisfied = False
+        self.timelimit = timelimit
 
     def activate(self, activating):
         list_remove = None
@@ -114,6 +115,7 @@ class CustomRewardOnActivation(RewardOnActivation):
 
         if activating.name == self.agent_name or activating.name == self.partner_landmark.name:
             if self.spawned is False:
+                self.current_timelimit = self.timelimit
                 self.active = True
                 self._texture_surface.fill(color=(255, 255, 255))
                 if self.partner_landmark.active:
@@ -133,6 +135,17 @@ class CustomRewardOnActivation(RewardOnActivation):
                                 elem_add = [(self.partner_landmark.out_reward, partner_spawn_coordinates)]
 
         return list_remove, elem_add
+    
+    def check_if_active(self):
+        if self.active:
+            if self.current_timelimit > 0:
+                self.activated = True
+                self.current_timelimit -= 1
+            else:
+                self.active = False
+                self._texture_surface.fill(color=(100, 200, 100))
+        else:
+            self.active = False
     
     def add_partner(self, partner_landmark):
         self.partner_landmark = partner_landmark
@@ -483,20 +496,20 @@ class CoopCraftingEnv(MultiAgentEnv):
         if self.coop:
             #Handle timer for pressure plate
             for element in self.shared_playground.elements:
-                if isinstance(element, TimedCustomRewardOnActivation):
+                if isinstance(element, TimedCustomRewardOnActivation) or isinstance(element, CustomRewardOnActivation):
                     element.check_if_active()
 
             self.shared_engine.step(actions)
             self.shared_engine.update_observations()
         else:
             for element in self.agent_0_playground.elements:
-                if isinstance(element, TimedCustomRewardOnActivation):
+                if isinstance(element, TimedCustomRewardOnActivation) or isinstance(element, CustomRewardOnActivation):
                     element.check_if_active()
             agent_0_actions = {self._active_agents[0]: actions[self._active_agents[0]]}
             self.agent_0_engine.step(agent_0_actions)
 
             for element in self.agent_1_playground.elements:
-                if isinstance(element, TimedCustomRewardOnActivation):
+                if isinstance(element, TimedCustomRewardOnActivation) or isinstance(element, CustomRewardOnActivation):
                     element.check_if_active()
             agent_1_actions = {self._active_agents[1]: actions[self._active_agents[1]]}
             self.agent_1_engine.step(agent_1_actions)
@@ -677,6 +690,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                     infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
     
             rewards[agent.name] = 0.1 * reward ** 2
+            #rewards[agent.name] = 0.0
 
             if second_task_dict is not None:
                 if agent.name == "agent_0":
@@ -897,13 +911,18 @@ class CoopCraftingEnv(MultiAgentEnv):
         elif stage_task_type == "activate_landmarks":
             possible_agent_names = []
             if num_agents < 2:
+                time_limit = 300
                 assert agent_name is not None
                 for i in range(2):
                     possible_agent_names.append(agent_name)
             else:
+                time_limit = 40
                 for a in range(num_agents):
                     possible_agent_names.append("agent_{0}".format(a))
-    
+            
+            if self.new_tasks is False:
+                time_limit = self.timelimit
+                
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
             second_agent = possible_agent_names[0]
@@ -914,6 +933,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                                                 texture=ColorTexture(color=[100, 200, 100], size=15),
                                                 out_reward=task_out_objects[0],
                                                 name="landmark0",
+                                                timelimit=time_limit,
                                                 temporary=True)
 
             landmark2 = CustomRewardOnActivation(agent_name=second_agent, radius=15,
@@ -921,6 +941,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                                                 texture=ColorTexture(color=[100, 200, 100], size=15),
                                                 out_reward=task_out_objects[1] if len(task_out_objects) > 1 else None,
                                                 name="landmark1",
+                                                timelimit=time_limit,
                                                 temporary=True)
             
             landmark1.add_partner(landmark2)
@@ -938,7 +959,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             #else:
             #    condition_obj = "no_object"
             condition_obj = landmark1
-
+    
         elif stage_task_type == "lemon_hunt":
             possible_agent_names = []
             if num_agents < 2:
@@ -1093,6 +1114,12 @@ class CoopCraftingEnv(MultiAgentEnv):
                     stage_task = random.choice(["crafting", "pressure_plate"])
                 else:
                     stage_task = random.choice(["crafting"])
+
+        #Only for testing emergent behavior for new version of landmarks
+        if stage == 1:
+            stage_task = "activate_landmarks"
+        elif stage == 2:
+            stage_task = "crafting"
 
         return stage_task
     
