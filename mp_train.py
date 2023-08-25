@@ -390,7 +390,7 @@ if __name__ == "__main__":
             print("Loaded pretrained model for agent {0}".format(a))
 
         #Initiate the learning rate if pretrained
-        lrnow = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
+        lr_start = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
 
     #Build the policies
     policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
@@ -525,7 +525,10 @@ if __name__ == "__main__":
 
                     if args.anneal_lr:
                         frac = 1.0 - (update - 1.0) / num_updates
-                        lrnow = frac * config["lr"]
+                        if config["pretrained"] is not None:
+                            lrnow = frac * lr_start
+                        else:
+                            lrnow = frac * config["lr"]
                         for a in range(config["env_config"]["num_agents"]):
                             policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
             
