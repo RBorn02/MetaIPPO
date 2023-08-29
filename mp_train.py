@@ -52,7 +52,9 @@ parser.add_argument("--num_envs", type=int, default=16,
 parser.add_argument("--time_limit", type=int, default=250,
                     help="Number of max steps per episode")
 parser.add_argument("--coop_chance", type=float, default=1.0,
-                    help="Chance of cooperative goal")
+                    help="Rate of multi agent episodes")
+parser.add_argument("--forced_coop_rate", type=float, default=1.0,
+                    help="Rate of multi agent episodes with forced cooperative goals")
 parser.add_argument("--stages", type=int, default=3,
                     help="Number of stages in the crafting environment")
 parser.add_argument("--new_tasks", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
@@ -391,6 +393,7 @@ if __name__ == "__main__":
 
         #Initiate the learning rate if pretrained
         lr_start = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
+        current_update = (lr_start / config["lr"] * (config["total_steps"] // config["batch_size"])) - 1 #Requires parameters not to change from the pretraining run
 
     #Build the policies
     policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
@@ -483,6 +486,8 @@ if __name__ == "__main__":
         
         num_updates = config["total_steps"] // config["batch_size"]
         update = 1
+        if config["pretrained"] is not None:
+            update = current_update + 1
 
         #Start the workers
         #ctx = mp.spawn(rollout, args=([policy_dict, train_queue, done, config]), nprocs=config["num_workers"], join=False)
@@ -525,10 +530,11 @@ if __name__ == "__main__":
 
                     if args.anneal_lr:
                         frac = 1.0 - (update - 1.0) / num_updates
-                        if config["pretrained"] is not None:
-                            lrnow = frac * lr_start
-                        else:
-                            lrnow = frac * config["lr"]
+                        #if config["pretrained"] is not None:
+                        #    lrnow = frac * lr_start
+                        #else:
+                        #    lrnow = frac * config["lr"]
+                        lrnow = frac * config["lr"]
                         for a in range(config["env_config"]["num_agents"]):
                             policy_dict["agent_{0}".format(a)].optimizer.param_groups[0]['lr'] = lrnow
             

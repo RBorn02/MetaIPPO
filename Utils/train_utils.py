@@ -301,6 +301,7 @@ def build_config(args):
         config["env_config"]["agent_resolution"] = args.agent_resolution
         config["env_config"]["stages"] = args.stages
         config["env_config"]["new_tasks"] = args.new_tasks
+        config["env_config"]["forced_coop_rate"] = args.forced_coop_rate
         
         config["pretrained"] = args.pretrained
         config["total_steps"] = args.total_steps
