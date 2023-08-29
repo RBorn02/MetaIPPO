@@ -1222,8 +1222,14 @@ class CoopCraftingEnv(MultiAgentEnv):
         elif stage_task_type == "double_activate":
             assert task_out_objects[0] != "no_object"
             possible_agent_names = []
-            for i in range(num_agents):
-                possible_agent_names.append("agent_{0}".format(i))
+
+            if num_agents < 2:
+                assert agent_name is not None
+                for i in range(2):
+                    possible_agent_names.append(agent_name)
+            else:
+                for i in range(num_agents):
+                    possible_agent_names.append("agent_{0}".format(i))
 
             
             double_activate_landmark = CustomRewardOnDoubleActivation(first_agent=possible_agent_names[0], 
