@@ -53,6 +53,8 @@ parser.add_argument("--time_limit", type=int, default=250,
                     help="Number of max steps per episode")
 parser.add_argument("--coop_chance", type=float, default=1.0,
                     help="Chance of cooperative goal")
+parser.add_argument("--forced_coop_rate", type=float, default=1.0,
+                    help="Rate of multi agent episodes with forced cooperative goals")
 parser.add_argument("--stages", type=int, default=3,
                     help="Number of stages in the crafting environment")
 parser.add_argument("--new_tasks", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
@@ -141,6 +143,8 @@ parser.add_argument("--video_path", type=str, default=None,
                     help="Path to save the video to")
 parser.add_argument("--run_name", type=str, default=None,
                     help="Option to add information to evaluation run name")
+parser.add_argument("--pretrained_forced_coop", type=float, default=1.0,
+                    help="Rate of multi agent episodes with forced cooperative goals during pretraining")
 parser.add_argument("--record_video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Record a video of the evaluation run")
 
@@ -385,6 +389,7 @@ if __name__ == "__main__":
     config["env_config"]["test_shape"] = args.test_shape
     config["env_config"]["test_color"] = args.test_color
     config["env_config"]["all_test_objects"] = args.all_test_objects
+    config["forced_coop_rate"] = args.pretrained_forced_coop
     config["video_path"] = args.video_path
     config["record_video"] = args.record_video
     device = config["device"]
@@ -434,7 +439,7 @@ if __name__ == "__main__":
                                                 config["env_config"]["coop_chance"], config["run_name"])
         if not config["debug"]:
             wandb.init(
-                project="MetaIPPO",
+                project="MetaIPPO_Eval",
                 sync_tensorboard=True,
                 config=config,
                 name=run_name,
