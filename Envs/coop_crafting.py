@@ -837,8 +837,8 @@ class CoopCraftingEnv(MultiAgentEnv):
                 else:
                     infos[agent.name]["coop_success_stage_{0}".format(s)] = -1.0
     
-            rewards[agent.name] = 0.1 * reward ** 2
-            #rewards[agent.name] = 0.0
+            #rewards[agent.name] = 0.1 * reward ** 2
+            rewards[agent.name] = 0.0
 
             if second_task_dict is not None:
                 if agent.name == "agent_0":
@@ -1326,10 +1326,10 @@ class CoopCraftingEnv(MultiAgentEnv):
                     stage_task = random.choice(["crafting"])
 
         #Only for testing emergent behavior for new version of landmarks
-        if stage == 1:
-            stage_task = "activate_landmarks"
-        elif stage == 2:
-            stage_task = "crafting"
+        #if stage == 1:
+        #    stage_task = "activate_landmarks"
+        #elif stage == 2:
+        #    stage_task = "crafting"
 
         return stage_task
     
