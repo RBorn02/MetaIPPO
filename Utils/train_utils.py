@@ -6,7 +6,7 @@ import csv
 import numpy as np
 from collections.abc import Mapping
 
-COMM_ENVS = ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm", "CoopCraftingEnvComm"]
+COMM_ENVS = ["MultiAgentLandmarksComm", "CoopCraftingEnvComm"]
 
 def build_storage(config, env):
     """Builds a dict for the storage of the rollout data for each policy"""
@@ -39,39 +39,6 @@ def build_storage(config, env):
               
     return storage
 
-def build_storage_pop(config, env, agent_ids):
-    """Builds a dict for the storage of the rollout data for each policy"""
-    num_steps = config["rollout_steps"] // (config["num_workers"] * config["env_config"]["num_envs"])
-    num_envs = config["env_config"]["num_envs"]
-    device = config["device"]
-    num_layers = config["model_config"]["lstm_layers"]
-    hidden_size = config["model_config"]["lstm_hidden_size"]
-    message_length = config["env_config"]["message_length"]
-
-
-    storage = {}
-    for a in agent_ids:
-        storage["agent_{0}".format(a)] = {
-                    "obs": torch.zeros((num_steps, num_envs) + env.observation_space.shape).to(device),
-                    "dones":torch.zeros((num_steps, num_envs)).to(device),
-                    #"is_training":torch.zeros((1, num_envs)).to(device),
-                    #"collected_env_steps":torch.zeros((num_envs)).to(device),
-                    "next_lstm_state":(
-                                        torch.zeros(num_layers, num_envs, hidden_size).to(device),
-                                        torch.zeros(num_layers, num_envs, hidden_size).to(device),
-                                        ),
-                    "rewards":torch.zeros((num_steps, num_envs)).to(device),
-                    "last_rewards":torch.zeros((num_steps, num_envs)).to(device),
-                    "actions":torch.zeros((num_steps, num_envs) + env.action_space_shape).to(device),
-                    "message_in":torch.zeros((num_steps, num_envs, message_length)).to(device),
-                    "last_actions":torch.zeros((num_steps, num_envs) + env.action_space_shape).to(device),
-                    "values":torch.zeros((num_steps, num_envs)).to(device),
-                    "logprobs":torch.zeros((num_steps, num_envs)).to(device),
-                    "contact":torch.zeros((num_steps, num_envs)).to(device),
-                    "time_till_end":torch.zeros((num_steps, num_envs)).to(device),
-                    }
-              
-    return storage
 
 def get_init_tensors(config, storage, env, agent):
     num_steps = config["rollout_steps"]
@@ -84,22 +51,6 @@ def get_init_tensors(config, storage, env, agent):
     next_lstm_state = (torch.zeros_like(storage[agent]["next_lstm_state"][0]), torch.zeros_like(storage[agent]["next_lstm_state"][1]))
     return action, logprob, value, next_lstm_state
 
-
-def truncate_storage(storage, config):
-    """Get the actual training data for each environment and truncate to steps_per_env"""
-    rollout_steps = config["rollout_steps"] // config["num_workers"]
-    next_step_storage = {"agent_{0}".format(a):{} for a in range(config["env_config"]["num_agents"])}
-    num_envs = config["env_config"]["num_envs"]
-    steps_per_env = int(rollout_steps // num_envs)
-    for agent in storage.keys():
-        for key in storage[agent].keys():
-            if key in ["obs", "dones", "rewards", "actions", "values", "logprobs"]:
-                shape = storage[agent][key].shape
-                next_step_storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()][rollout_steps:rollout_steps + num_envs].reshape((-1,) + shape[1:])
-                storage[agent][key] = storage[agent][key][storage[agent]["is_training"].bool()].reshape((-1,) + shape[1:])
-            else:
-                continue
-    return storage, next_step_storage
 
 def build_storage_from_batch(batch, config):
     """Takes the batch returned by multiprocessing queue and builds a storage dict"""
@@ -170,64 +121,6 @@ def build_storage_from_batch(batch, config):
         return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
     else:
         return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
-    
-
-def build_storage_from_batch_pop(batch, config):
-    """Takes the batch returned by multiprocessing queue and builds a storage dict"""
-    storage_out = {}
-    next_obs = {}
-    next_dones = {}
-    next_messages = {}
-    success_rate = {}
-    achieved_goal = {}
-    achieved_goal_success = {}
-    next_contact = {}
-    stage_success_info = {}
-    for a in range(config["env_config"]["num_agents"]):
-        agent = "agent_{0}".format(a)
-        storage_out[agent] = {}
-        agent_batch = []
-        for i in range(len(batch)):
-            if agent in batch[i][0].keys():
-                agent_batch.append(batch[i])
-        storage_out[agent]["obs"] = torch.cat([agent_batch[i][0][agent]["obs"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["dones"] = torch.cat([agent_batch[i][0][agent]["dones"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["next_lstm_state"] = (torch.cat([agent_batch[i][0][agent]["next_lstm_state"][0] for i in range(len(agent_batch))], dim=1),
-                                                    torch.cat([agent_batch[i][0][agent]["next_lstm_state"][1] for i in range(len(agent_batch))], dim=1))
-        storage_out[agent]["initial_lstm_state"] = (torch.cat([agent_batch[i][0][agent]["initial_lstm_state"][0] for i in range(len(agent_batch))], dim=1),
-                                                    torch.cat([agent_batch[i][0][agent]["initial_lstm_state"][1] for i in range(len(agent_batch))], dim=1))
-        storage_out[agent]["rewards"] = torch.cat([agent_batch[i][0][agent]["rewards"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["last_rewards"] = torch.cat([agent_batch[i][0][agent]["last_rewards"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["actions"] = torch.cat([agent_batch[i][0][agent]["actions"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["last_actions"] = torch.cat([agent_batch[i][0][agent]["last_actions"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["message_in"] = torch.cat([agent_batch[i][0][agent]["message_in"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["values"] = torch.cat([agent_batch[i][0][agent]["values"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["logprobs"] = torch.cat([agent_batch[i][0][agent]["logprobs"] for i in range(len(agent_batch))], dim=1)
-        storage_out[agent]["contact"] = torch.cat([agent_batch[i][0][agent]["contact"] for i in range(len(agent_batch))], dim=1)
-
-        next_obs[agent] = torch.cat([agent_batch[i][1][agent] for i in range(len(agent_batch))], dim=1)
-        next_dones[agent] = torch.cat([agent_batch[i][2][agent] for i in range(len(agent_batch))], dim=1)
-        success_rate[agent] = sum([agent_batch[i][3][agent] for i in range(len(agent_batch))])
-        achieved_goal[agent] = torch.sum(torch.cat([agent_batch[i][4][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
-        achieved_goal_success[agent] = torch.sum(torch.cat([agent_batch[i][5][agent].unsqueeze(dim=0) for i in range(len(agent_batch))], dim=0), dim=0)
-        next_contact[agent] = torch.cat([agent_batch[i][6][agent] for i in range(len(agent_batch))], dim=1)
-
-        if config["env_config"]["env_name"] in ["CraftingEnv", "CraftingEnvComm", "CoopCraftingEnv"]:
-            stage_success_info[agent] = {}
-            for s in range(1, config["env_config"]["stages"]+1):
-                num_stage_sampled = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][0] for i in range(len(agent_batch))])
-                num_stage_success = sum([agent_batch[i][7][agent]["stage_{0}".format(s)][1] for i in range(len(agent_batch))])
-                stage_success_info[agent]["stage_{0}".format(s)] = (num_stage_sampled, num_stage_success)
-
-        if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-            next_messages[agent] = torch.cat([agent_batch[i][7][agent] for i in range(len(agent_batch))], dim=1)
-        
-    if config["env_config"]["env_name"] in ["MultiAgentLandmarksComm", "LinRoomEnvComm", "LinLandmarksEnvComm", "TreasureHuntComm"]:
-        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
-    else:
-        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, stage_success_info
-    
-    
 
 
 
@@ -249,6 +142,7 @@ def move_tensors_to_cpu(inputs_list):
                             if isinstance(obj_1, torch.Tensor):
                                 input[key][key2] = (obj_1.cpu(), obj_2.cpu())
 
+
 def move_tensors_to_gpu(inputs_list):
     for input, idx in zip(inputs_list, range(len(inputs_list))):
         if isinstance(input, torch.Tensor):
@@ -267,11 +161,6 @@ def move_tensors_to_gpu(inputs_list):
                             if isinstance(obj_1, torch.Tensor):
                                 input[key][key2] = (obj_1.cuda(), obj_2.cuda())
         
-
-
-
-
-            
 
 
 def build_config(args):
