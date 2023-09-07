@@ -393,7 +393,7 @@ if __name__ == "__main__":
 
         #Initiate the learning rate if pretrained
         lr_start = optimizer_dict["agent_0"]["optimizer"].param_groups[0]['lr']
-        current_update = (lr_start / config["lr"] * (config["total_steps"] // config["batch_size"])) - 1 #Requires parameters not to change from the pretraining run
+        current_update = round((config["lr"] - lr_start) / config["lr"] * (config["total_steps"] // config["batch_size"])) + 1 #Requires parameters not to change from the pretraining run
 
     #Build the policies
     policy_dict = {"agent_{0}".format(a): LSTM_PPO_Policy(config, agent_dict["agent_{0}".format(a)], optimizer_dict["agent_{0}".format(a)]["optimizer"]) 
