@@ -370,7 +370,6 @@ if __name__ == "__main__":
     args.minibatch_size = int(args.batch_size // args.num_minibatches)
 
     config = build_config(args)
-    config["env_config"]["test"] = False
     device = config["device"]
 
     #Build the environemnt

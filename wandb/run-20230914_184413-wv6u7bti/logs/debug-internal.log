@@ -1,0 +1,243 @@
+2023-09-14 18:44:13,263 INFO    StreamThr :38243 [internal.py:wandb_internal():86] W&B internal server running at pid: 38243, started at: 2023-09-14 18:44:13.263350
+2023-09-14 18:44:13,264 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status
+2023-09-14 18:44:13,266 INFO    WriterThread:38243 [datastore.py:open_for_write():85] open: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/run-wv6u7bti.wandb
+2023-09-14 18:44:13,268 DEBUG   SenderThread:38243 [sender.py:send():375] send: header
+2023-09-14 18:44:13,270 DEBUG   SenderThread:38243 [sender.py:send():375] send: run
+2023-09-14 18:44:13,825 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: check_version
+2023-09-14 18:44:13,828 INFO    SenderThread:38243 [dir_watcher.py:__init__():219] watching files in: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files
+2023-09-14 18:44:13,829 INFO    SenderThread:38243 [sender.py:_start_run_threads():1124] run started: wv6u7bti with start time 1694709853.261881
+2023-09-14 18:44:13,829 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:44:13,830 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:44:13,830 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: check_version
+2023-09-14 18:44:14,000 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: run_start
+2023-09-14 18:44:14,833 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:44:15,611 DEBUG   HandlerThread:38243 [system_info.py:__init__():31] System info init
+2023-09-14 18:44:15,612 DEBUG   HandlerThread:38243 [system_info.py:__init__():46] System info init done
+2023-09-14 18:44:15,612 INFO    HandlerThread:38243 [system_monitor.py:start():181] Starting system monitor
+2023-09-14 18:44:15,612 INFO    SystemMonitor:38243 [system_monitor.py:_start():145] Starting system asset monitoring threads
+2023-09-14 18:44:15,612 INFO    HandlerThread:38243 [system_monitor.py:probe():201] Collecting system info
+2023-09-14 18:44:15,613 INFO    SystemMonitor:38243 [interfaces.py:start():190] Started cpu monitoring
+2023-09-14 18:44:15,613 INFO    SystemMonitor:38243 [interfaces.py:start():190] Started disk monitoring
+2023-09-14 18:44:15,614 INFO    SystemMonitor:38243 [interfaces.py:start():190] Started gpu monitoring
+2023-09-14 18:44:15,615 INFO    SystemMonitor:38243 [interfaces.py:start():190] Started memory monitoring
+2023-09-14 18:44:15,616 INFO    SystemMonitor:38243 [interfaces.py:start():190] Started network monitoring
+2023-09-14 18:44:15,622 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:15,639 DEBUG   HandlerThread:38243 [system_info.py:probe():195] Probing system
+2023-09-14 18:44:15,641 DEBUG   HandlerThread:38243 [system_info.py:_probe_git():180] Probing git
+2023-09-14 18:44:15,647 DEBUG   HandlerThread:38243 [system_info.py:_probe_git():188] Probing git done
+2023-09-14 18:44:15,647 DEBUG   HandlerThread:38243 [system_info.py:probe():240] Probing system done
+2023-09-14 18:44:15,647 DEBUG   HandlerThread:38243 [system_monitor.py:probe():210] {'os': 'Linux-5.15.0-83-generic-x86_64-with-glibc2.31', 'python': '3.10.11', 'heartbeatAt': '2023-09-14T16:44:15.639838', 'startedAt': '2023-09-14T16:44:13.253086', 'docker': None, 'cuda': None, 'args': ('--env_name', 'CoopCraftingEnv', '--rollout_steps', '1280', '--time_limit', '10'), 'state': 'running', 'program': '/home/rbornema/Documents/GitHub/MetaIPPO/mp_train.py', 'codePath': 'mp_train.py', 'git': {'remote': 'https://github.com/RBorn02/MetaIPPO.git', 'commit': 'ae517c1f18ba5c0124170ef293a5916172991a37'}, 'email': 'r.bornemann97@gmail.com', 'root': '/home/rbornema/Documents/GitHub/MetaIPPO', 'host': 'epi-flowers-plantec', 'username': 'rbornema', 'executable': '/home/rbornema/anaconda3/envs/testtorch/bin/python3', 'cpu_count': 6, 'cpu_count_logical': 12, 'cpu_freq': {'current': 2.6832499999999997, 'min': 800.0, 'max': 5100.0}, 'cpu_freq_per_core': [{'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.6, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.7, 'min': 800.0, 'max': 5100.0}, {'current': 2.599, 'min': 800.0, 'max': 5100.0}], 'disk': {'total': 91.10684585571289, 'used': 27.844581604003906}, 'gpu': 'Quadro T1000', 'gpu_count': 1, 'gpu_devices': [{'name': 'Quadro T1000', 'memory_total': 4294967296}], 'memory': {'total': 31.087512969970703}}
+2023-09-14 18:44:15,647 INFO    HandlerThread:38243 [system_monitor.py:probe():211] Finished collecting system info
+2023-09-14 18:44:15,647 INFO    HandlerThread:38243 [system_monitor.py:probe():214] Publishing system info
+2023-09-14 18:44:15,647 DEBUG   HandlerThread:38243 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-09-14 18:44:15,648 DEBUG   HandlerThread:38243 [system_info.py:_save_pip():67] Saving pip packages done
+2023-09-14 18:44:15,648 DEBUG   HandlerThread:38243 [system_info.py:_save_conda():74] Saving list of conda packages installed into the current environment
+2023-09-14 18:44:15,829 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/requirements.txt
+2023-09-14 18:44:15,829 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/conda-environment.yaml
+2023-09-14 18:44:17,624 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:19,626 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:20,780 DEBUG   HandlerThread:38243 [system_info.py:_save_conda():86] Saving conda packages done
+2023-09-14 18:44:20,780 DEBUG   HandlerThread:38243 [system_info.py:_save_code():89] Saving code
+2023-09-14 18:44:20,782 DEBUG   HandlerThread:38243 [system_info.py:_save_code():110] Saving code done
+2023-09-14 18:44:20,783 DEBUG   HandlerThread:38243 [system_info.py:_save_patches():127] Saving git patches
+2023-09-14 18:44:20,812 DEBUG   HandlerThread:38243 [system_info.py:_save_patches():169] Saving git patches done
+2023-09-14 18:44:20,813 INFO    HandlerThread:38243 [system_monitor.py:probe():216] Finished publishing system info
+2023-09-14 18:44:20,817 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:20,818 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: keepalive
+2023-09-14 18:44:20,818 DEBUG   SenderThread:38243 [sender.py:send():375] send: files
+2023-09-14 18:44:20,818 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-metadata.json with policy now
+2023-09-14 18:44:20,819 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file code/mp_train.py with policy now
+2023-09-14 18:44:20,819 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file diff.patch with policy now
+2023-09-14 18:44:20,825 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: stop_status
+2023-09-14 18:44:20,825 INFO    HandlerThread:38243 [handler.py:handle_tbrecord():747] handling tbrecord: tbrecord {
+  log_dir: "runs/PPO_CoopCraftingEnv_2_1.0_1694709851.8962488"
+  save: true
+}
+control {
+  relay_id: "ee5666b4cdb24612864ab3ad9bda0d27"
+}
+_info {
+  stream_id: "wv6u7bti"
+}
+
+2023-09-14 18:44:20,826 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: stop_status
+2023-09-14 18:44:20,826 DEBUG   HandlerThread:38243 [config_util.py:dict_from_config_file():104] no default config file found in config-defaults.yaml
+2023-09-14 18:44:20,832 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/conda-environment.yaml
+2023-09-14 18:44:20,832 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-metadata.json
+2023-09-14 18:44:20,832 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/diff.patch
+2023-09-14 18:44:20,832 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/code/mp_train.py
+2023-09-14 18:44:20,833 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/code
+2023-09-14 18:44:21,179 INFO    wandb-upload_1:38243 [upload_job.py:push():117] Skipped uploading /tmp/tmpj_4qupq_wandb/u54o0noa-code/mp_train.py
+2023-09-14 18:44:21,441 DEBUG   SenderThread:38243 [sender.py:send():375] send: telemetry
+2023-09-14 18:44:21,442 DEBUG   SenderThread:38243 [sender.py:send():375] send: tbrecord
+2023-09-14 18:44:21,463 INFO    wandb-upload_0:38243 [upload_job.py:push():137] Uploaded file /tmp/tmpj_4qupq_wandb/0dzzmjpx-wandb-metadata.json
+2023-09-14 18:44:21,644 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:21,898 INFO    wandb-upload_2:38243 [upload_job.py:push():137] Uploaded file /tmp/tmpj_4qupq_wandb/ahnta45e-diff.patch
+2023-09-14 18:44:21,907 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:44:23,728 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:23,912 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:44:23,973 DEBUG   SenderThread:38243 [sender.py:send():375] send: files
+2023-09-14 18:44:23,974 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file events.out.tfevents.1694709860.epi-flowers-plantec.38151.0 with policy live
+2023-09-14 18:44:24,618 INFO    wandb-upload_1:38243 [upload_job.py:push():137] Uploaded file /tmp/tmpj_4qupq_wandb/jyab8rck-events.out.tfevents.1694709860.epi-flowers-plantec.38151.0
+2023-09-14 18:44:24,913 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_created():278] file/dir created: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/events.out.tfevents.1694709860.epi-flowers-plantec.38151.0
+2023-09-14 18:44:24,975 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:25,731 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:27,734 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:29,737 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:29,975 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:31,739 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:33,742 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:34,976 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:35,744 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:35,823 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: stop_status
+2023-09-14 18:44:35,824 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: stop_status
+2023-09-14 18:44:37,747 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:39,750 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:40,085 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:41,753 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:43,756 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:45,090 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:45,877 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:45,921 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/config.yaml
+2023-09-14 18:44:47,879 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:49,882 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:50,421 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:50,824 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: stop_status
+2023-09-14 18:44:50,824 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: stop_status
+2023-09-14 18:44:51,885 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:53,887 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:55,890 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:56,138 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:44:57,892 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:44:59,895 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:01,139 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:01,898 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:03,900 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:05,824 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: stop_status
+2023-09-14 18:45:05,824 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: stop_status
+2023-09-14 18:45:05,902 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:06,190 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:06,669 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:06,671 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:06,671 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:06,674 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:06,930 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:45:07,209 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:07,211 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:07,212 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:07,216 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:07,217 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:07,221 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:07,225 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:07,226 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:07,226 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:07,226 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:07,227 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:07,227 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:07,905 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:07,930 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:07,930 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:45:09,908 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:09,931 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:11,228 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:11,911 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:13,914 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:15,616 DEBUG   SystemMonitor:38243 [system_monitor.py:_start():159] Starting system metrics aggregation loop
+2023-09-14 18:45:15,618 DEBUG   SenderThread:38243 [sender.py:send():375] send: stats
+2023-09-14 18:45:16,007 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:16,619 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:18,010 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:20,012 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:20,657 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:20,660 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:20,660 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:20,661 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:20,824 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: stop_status
+2023-09-14 18:45:20,825 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: stop_status
+2023-09-14 18:45:20,936 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:45:21,190 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:21,192 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:21,194 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: partial_history
+2023-09-14 18:45:21,195 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:21,198 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:21,199 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:21,200 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:21,200 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:21,200 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:21,201 DEBUG   SenderThread:38243 [sender.py:send():375] send: history
+2023-09-14 18:45:21,201 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: summary_record
+2023-09-14 18:45:21,201 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:21,936 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:21,937 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:45:22,015 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:22,202 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:23,937 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:24,017 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:26,020 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:27,203 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:28,023 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:30,026 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:32,029 ERROR   gpu       :38243 [interfaces.py:monitor():144] Failed to sample metric: Not Supported
+2023-09-14 18:45:32,204 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: status_report
+2023-09-14 18:45:32,385 DEBUG   SenderThread:38243 [sender.py:send():375] send: exit
+2023-09-14 18:45:32,385 INFO    SenderThread:38243 [sender.py:send_exit():598] handling exit code: 255
+2023-09-14 18:45:32,386 INFO    SenderThread:38243 [sender.py:send_exit():600] handling runtime: 78
+2023-09-14 18:45:32,386 INFO    SenderThread:38243 [sender.py:_save_file():1378] saving file wandb-summary.json with policy end
+2023-09-14 18:45:32,386 INFO    SenderThread:38243 [sender.py:send_exit():606] send defer
+2023-09-14 18:45:32,386 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: defer
+2023-09-14 18:45:32,387 INFO    HandlerThread:38243 [handler.py:handle_request_defer():170] handle defer: 0
+2023-09-14 18:45:32,388 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: defer
+2023-09-14 18:45:32,388 INFO    SenderThread:38243 [sender.py:send_request_defer():622] handle sender defer: 0
+2023-09-14 18:45:32,388 INFO    SenderThread:38243 [sender.py:transition_state():626] send defer: 1
+2023-09-14 18:45:32,388 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: defer
+2023-09-14 18:45:32,388 INFO    HandlerThread:38243 [handler.py:handle_request_defer():170] handle defer: 1
+2023-09-14 18:45:32,388 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: defer
+2023-09-14 18:45:32,388 INFO    SenderThread:38243 [sender.py:send_request_defer():622] handle sender defer: 1
+2023-09-14 18:45:32,389 INFO    SenderThread:38243 [sender.py:transition_state():626] send defer: 2
+2023-09-14 18:45:32,389 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: defer
+2023-09-14 18:45:32,389 INFO    HandlerThread:38243 [handler.py:handle_request_defer():170] handle defer: 2
+2023-09-14 18:45:32,389 INFO    HandlerThread:38243 [system_monitor.py:finish():190] Stopping system monitor
+2023-09-14 18:45:32,389 DEBUG   SystemMonitor:38243 [system_monitor.py:_start():166] Finished system metrics aggregation loop
+2023-09-14 18:45:32,389 DEBUG   SystemMonitor:38243 [system_monitor.py:_start():170] Publishing last batch of metrics
+2023-09-14 18:45:32,395 INFO    HandlerThread:38243 [interfaces.py:finish():202] Joined cpu monitor
+2023-09-14 18:45:32,395 INFO    HandlerThread:38243 [interfaces.py:finish():202] Joined disk monitor
+2023-09-14 18:45:32,456 INFO    HandlerThread:38243 [interfaces.py:finish():202] Joined gpu monitor
+2023-09-14 18:45:32,457 INFO    HandlerThread:38243 [interfaces.py:finish():202] Joined memory monitor
+2023-09-14 18:45:32,457 INFO    HandlerThread:38243 [interfaces.py:finish():202] Joined network monitor
+2023-09-14 18:45:32,457 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: defer
+2023-09-14 18:45:32,457 INFO    SenderThread:38243 [sender.py:send_request_defer():622] handle sender defer: 2
+2023-09-14 18:45:32,457 INFO    SenderThread:38243 [sender.py:transition_state():626] send defer: 3
+2023-09-14 18:45:32,457 DEBUG   SenderThread:38243 [sender.py:send():375] send: stats
+2023-09-14 18:45:32,457 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: defer
+2023-09-14 18:45:32,458 INFO    HandlerThread:38243 [handler.py:handle_request_defer():170] handle defer: 3
+2023-09-14 18:45:32,458 DEBUG   SenderThread:38243 [sender.py:send_request():402] send_request: defer
+2023-09-14 18:45:32,458 INFO    SenderThread:38243 [sender.py:send_request_defer():622] handle sender defer: 3
+2023-09-14 18:45:32,458 INFO    SenderThread:38243 [sender.py:transition_state():626] send defer: 4
+2023-09-14 18:45:32,458 DEBUG   HandlerThread:38243 [handler.py:handle_request():144] handle_request: defer
+2023-09-14 18:45:32,458 INFO    HandlerThread:38243 [handler.py:handle_request_defer():170] handle defer: 4
+2023-09-14 18:45:32,941 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:45:34,360 WARNING StreamThr :38243 [internal.py:is_dead():414] Internal process exiting, parent pid 38151 disappeared
+2023-09-14 18:45:34,360 ERROR   StreamThr :38243 [internal.py:wandb_internal():152] Internal process shutdown.
+2023-09-14 18:45:34,459 INFO    WriterThread:38243 [datastore.py:close():298] close: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/run-wv6u7bti.wandb
+2023-09-14 18:45:34,459 INFO    SenderThread:38243 [sender.py:finish():1550] shutting down sender
+2023-09-14 18:45:34,943 INFO    Thread-12 :38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:36,385 INFO    SenderThread:38243 [dir_watcher.py:finish():365] shutting down directory watcher
+2023-09-14 18:45:36,945 INFO    SenderThread:38243 [dir_watcher.py:_on_file_modified():295] file/dir modified: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:36,946 INFO    SenderThread:38243 [dir_watcher.py:finish():395] scan: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files
+2023-09-14 18:45:36,947 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json wandb-summary.json
+2023-09-14 18:45:36,947 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/config.yaml config.yaml
+2023-09-14 18:45:36,947 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/diff.patch diff.patch
+2023-09-14 18:45:36,948 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log output.log
+2023-09-14 18:45:36,954 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-metadata.json wandb-metadata.json
+2023-09-14 18:45:36,954 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/requirements.txt requirements.txt
+2023-09-14 18:45:36,954 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/conda-environment.yaml conda-environment.yaml
+2023-09-14 18:45:36,955 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/events.out.tfevents.1694709860.epi-flowers-plantec.38151.0 events.out.tfevents.1694709860.epi-flowers-plantec.38151.0
+2023-09-14 18:45:36,970 INFO    SenderThread:38243 [dir_watcher.py:finish():409] scan save: /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/code/mp_train.py code/mp_train.py
+2023-09-14 18:45:36,970 INFO    SenderThread:38243 [file_pusher.py:finish():167] shutting down file pusher
+2023-09-14 18:45:36,971 INFO    SenderThread:38243 [file_pusher.py:join():172] waiting for file pusher
+2023-09-14 18:45:37,451 INFO    wandb-upload_3:38243 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/output.log
+2023-09-14 18:45:37,452 INFO    wandb-upload_1:38243 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/requirements.txt
+2023-09-14 18:45:37,520 INFO    wandb-upload_2:38243 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/wandb-summary.json
+2023-09-14 18:45:37,526 INFO    wandb-upload_0:38243 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/config.yaml
+2023-09-14 18:45:37,588 INFO    wandb-upload_4:38243 [upload_job.py:push():137] Uploaded file /home/rbornema/Documents/GitHub/MetaIPPO/wandb/run-20230914_184413-wv6u7bti/files/conda-environment.yaml
+2023-09-14 18:45:38,912 INFO    HandlerThread:38243 [handler.py:finish():842] shutting down handler

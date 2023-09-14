@@ -64,6 +64,7 @@ def build_storage_from_batch(batch, config):
     next_contact = {}
     next_time_till_end = {}
     stage_success_info = {}
+    tasks_success_rates = {}
     for a in range(config["env_config"]["num_agents"]):
         agent = "agent_{0}".format(a)
         storage_out[agent] = {}
@@ -108,19 +109,23 @@ def build_storage_from_batch(batch, config):
                     stage_success_info[agent]["stage_{0}".format(s)] = {"average_success": (num_stage_sampled, num_stage_success),
                                                                         "coop_success": (num_coop_stage_sampled, num_coop_stage_success),
                                                                         "single_success": (num_single_stage_sampled, num_single_stage_success)}
+                    
+                    agent_task_success_rates = {"activate_landmarks":0.0, "double_activate":0.0, "lemon_hunt":0.0, "crafting":0.0, "in_out_machine":0.0, "dropoff":0.0}
+                    for task in agent_task_success_rates.keys():
+                        agent_task_success_rates[task] = sum([batch[i][9][agent][task] for i in range(len(batch))]) / len(batch)
+                    tasks_success_rates[agent] = agent_task_success_rates
+
                 else:
                     stage_success_info[agent]["stage_{0}".format(s)] = {"average_success": (num_stage_sampled, num_stage_success)}
 
 
-
-    
         if config["env_config"]["env_name"] in COMM_ENVS:
-            next_messages[agent] = torch.cat([batch[i][9][agent] for i in range(len(batch))], dim=1)
+            next_messages[agent] = torch.cat([batch[i][10][agent] for i in range(len(batch))], dim=1)
     
     if config["env_config"]["env_name"] in COMM_ENVS:
-        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
+        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info, tasks_success_rates
     else:
-        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
+        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info, tasks_success_rates
 
 
 
@@ -251,7 +256,8 @@ def handle_dones(dones):
 def print_info(storage, total_completed, rewards, stage_success_dict, stages_sampled, coop_stage_success_dict, coop_stages_sampled,
                single_stage_success_dict, single_stages_sampled, epoch, average_reward_dict, best_average_reward_dict, 
                success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success,
-               stages_average_success_rate, coop_stages_average_success_rate, single_stages_average_success_rate, config):
+               stages_average_success_rate, coop_stages_average_success_rate, single_stages_average_success_rate, 
+               task_success_rates, config):
     """Print info for each episode"""
     end_of_episode_info = {}
     print("Epoch: {0}".format(epoch))
@@ -336,6 +342,11 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
                 else:
                      print("Stage {0}: {1} Successes; {2} Samples; {3} Success Rate; ".format(s, 
                         stage_successes, stage_samples, stage_success_rate))
+            
+            if config["env_config"]["test"]:
+                print("Agent {0} Tasks Success Rates: Activate Landmarks: {1}; Double Activate: {2}; Lemon Hunt: {3}; Crafting: {4}; In Out Machine: {5}; Dropoff: {6}".format(id,
+                    task_success_rates[a]["activate_landmarks"], task_success_rates[a]["double_activate"], task_success_rates[a]["lemon_hunt"], task_success_rates[a]["crafting"],
+                    task_success_rates[a]["in_out_machine"], task_success_rates[a]["dropoff"]))
         else:
             pass
 
@@ -406,9 +417,9 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
             message_actions = actions[:,:, env.movement_shape[0]:]
             input_dict["actions"] = movement_actions
             input_dict["messages"] = message_actions
-            next_obs, next_messages_in, rewards ,dones, next_contact, next_time_till_end, info = env.step(input_dict)
+            next_obs, next_messages_in, rewards ,dones, next_contact, next_time_till_end, info, _ = env.step(input_dict)
         else:
-            next_obs, rewards, dones, next_contact, next_time_till_end, info = env.step(actions)
+            next_obs, rewards, dones, next_contact, next_time_till_end, info, _ = env.step(actions)
         next_dones = handle_dones(dones)
         for a in range(config["env_config"]["num_agents"]):
             if s < num_steps - 1:

@@ -1,0 +1,112 @@
+{
+    "os": "Linux-5.15.0-83-generic-x86_64-with-glibc2.31",
+    "python": "3.10.11",
+    "heartbeatAt": "2023-09-14T16:44:15.639838",
+    "startedAt": "2023-09-14T16:44:13.253086",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--env_name",
+        "CoopCraftingEnv",
+        "--rollout_steps",
+        "1280",
+        "--time_limit",
+        "10"
+    ],
+    "state": "running",
+    "program": "/home/rbornema/Documents/GitHub/MetaIPPO/mp_train.py",
+    "codePath": "mp_train.py",
+    "git": {
+        "remote": "https://github.com/RBorn02/MetaIPPO.git",
+        "commit": "ae517c1f18ba5c0124170ef293a5916172991a37"
+    },
+    "email": "r.bornemann97@gmail.com",
+    "root": "/home/rbornema/Documents/GitHub/MetaIPPO",
+    "host": "epi-flowers-plantec",
+    "username": "rbornema",
+    "executable": "/home/rbornema/anaconda3/envs/testtorch/bin/python3",
+    "cpu_count": 6,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 2.6832499999999997,
+        "min": 800.0,
+        "max": 5100.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.6,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.7,
+            "min": 800.0,
+            "max": 5100.0
+        },
+        {
+            "current": 2.599,
+            "min": 800.0,
+            "max": 5100.0
+        }
+    ],
+    "disk": {
+        "total": 91.10684585571289,
+        "used": 27.844581604003906
+    },
+    "gpu": "Quadro T1000",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "Quadro T1000",
+            "memory_total": 4294967296
+        }
+    ],
+    "memory": {
+        "total": 31.087512969970703
+    }
+}

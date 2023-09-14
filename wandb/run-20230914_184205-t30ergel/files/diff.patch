@@ -1,0 +1,566 @@
+diff --git a/Envs/__pycache__/environment_handler.cpython-310.pyc b/Envs/__pycache__/environment_handler.cpython-310.pyc
+index a389423..078d72e 100644
+Binary files a/Envs/__pycache__/environment_handler.cpython-310.pyc and b/Envs/__pycache__/environment_handler.cpython-310.pyc differ
+diff --git a/Envs/__pycache__/simple_landmarks.cpython-310.pyc b/Envs/__pycache__/simple_landmarks.cpython-310.pyc
+index 72eec64..ba1f54f 100644
+Binary files a/Envs/__pycache__/simple_landmarks.cpython-310.pyc and b/Envs/__pycache__/simple_landmarks.cpython-310.pyc differ
+diff --git a/Envs/coop_crafting.py b/Envs/coop_crafting.py
+index d32d0dc..57eb945 100644
+--- a/Envs/coop_crafting.py
++++ b/Envs/coop_crafting.py
+@@ -471,7 +471,7 @@ class TimedCustomRewardOnActivation(RewardOnActivation):
+         if isinstance(activating, BaseAgent):
+             self.time_limit = 10
+             self.active = True
+-            self._texture_surface.fill(color=(255, 255, 255))
++            self._texture_surface.fill(color=(0, 100, 250))
+ 
+         return list_remove, elem_add
+     
+@@ -482,7 +482,7 @@ class TimedCustomRewardOnActivation(RewardOnActivation):
+                 self.time_limit -= 1
+             else:
+                 self.active = False
+-                self._texture_surface.fill(color=(100, 250, 25))
++                self._texture_surface.fill(color=(255, 100, 100))
+         else:
+             self.active = False
+ 
+@@ -778,10 +778,32 @@ class CoopCraftingEnv(MultiAgentEnv):
+                     task_dict = task_dict
+                 else:
+                     task_dict = second_task_dict
++            
++            task_successes = {"activate_landmarks":0,
++                                   "double_activate":0,
++                                   "lemon_hunt":0,
++                                   "crafting":0,
++                                   "in_out_machine":0,
++                                   "dropoff":0}
++        
++            tasks_sampled =  {"activate_landmarks":0,
++                                   "double_activate":0,
++                                   "lemon_hunt":0,
++                                   "crafting":0,
++                                   "in_out_machine":0,
++                                   "dropoff":0}
++        
++            for stage in range(1, stage+1):
++                stage_task = task_dict["stage_{0}".format(stage)]["task"]
++                tasks_sampled[stage_task] += 1
+          
+             for s in range(1, stage+1):
+                 condition_obj = task_dict["stage_{0}".format(s)]["condition_object"]
+                 if condition_obj.condition_satisfied:
++                    #Log which task was succesfully completed
++                    task = task_dict["stage_{0}".format(s)]["task"]
++                    task_successes[task] += 1
++
+                     idx = 0
+                     switch = False #switch to compute success rates correctly for logging. Keeping the old version for consistency during training
+                     if switch:
+@@ -809,9 +831,11 @@ class CoopCraftingEnv(MultiAgentEnv):
+ 
+                 
+             if self.stage_first_reward_dict[agent.name]["stage_{0}".format(stage)] and int(reward) == stage:
+-                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end}
++                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end,
++                                     "tasks_sampled": tasks_sampled, "task_successes": task_successes}
+             else:
+-                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end}
++                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end,
++                                     "tasks_sampled": tasks_sampled, "task_successes": task_successes}
+             
+             for s in range(1, stage + 1):
+                 if self.success_rate_dict["stage_{0}".format(s)][agent.name][-1]: 
+@@ -825,6 +849,7 @@ class CoopCraftingEnv(MultiAgentEnv):
+                             infos[agent.name]["single_success_stage_{0}".format(s)] = 1.0
+ 
+                         self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)] = False
++
+                     else:
+                         infos[agent.name]["success_stage_{0}".format(s)] = 0.0
+ 
+@@ -935,7 +960,7 @@ class CoopCraftingEnv(MultiAgentEnv):
+         possible_object_types = possible_objects.copy()
+         task_dict = {}
+         end_condition = random.choice(end_conditions)
+-        end_condition = "no_object"
++        #end_condition = "object_exists"
+         end_condition_object = random.choice(possible_object_types)
+         possible_object_types.remove(end_condition_object)
+         end_condition_object_shape = end_condition_object[0]
+@@ -1092,7 +1117,7 @@ class CoopCraftingEnv(MultiAgentEnv):
+                     possible_agent_names.append(agent_name)
+             else:
+                 if forced_coop:
+-                    time_limit = 10
++                    time_limit = 2
+                 else:
+                     time_limit = 300
+ 
+@@ -1194,7 +1219,7 @@ class CoopCraftingEnv(MultiAgentEnv):
+             if num_agents < 2:
+                 time_limit = 200
+             else:
+-                time_limit = 10
++                time_limit = 2
+ 
+             pressure_plate =  TimedCustomRewardOnActivation(radius=15, 
+                                                             time_limit=time_limit, 
+@@ -1261,7 +1286,8 @@ class CoopCraftingEnv(MultiAgentEnv):
+                                                 name="landmark0",
+                                                 timelimit=10,
+                                                 coop=forced_coop,
+-                                                second_agent=None if num_agents < 2 else possible_agent_names[1],
++                                                #second_agent=None if num_agents < 2 else possible_agent_names[1],
++                                                second_agent="agent_1",
+                                                 temporary=True)
+             
+             if len (task_out_objects) > 1:
+@@ -1405,6 +1431,13 @@ class CoopCraftingEnv(MultiAgentEnv):
+                     stage_task = random.choice(["crafting", "in_out_machine"])
+                 else:
+                     stage_task = "crafting"
++        
++        #if stage == 1:
++        #    stage_task = "pressure_plate"
++        #elif stage == 2:
++        #    stage_task = "double_activate"
++        #elif stage == 3:
++        #    stage_task = "crafting"
+ 
+         return stage_task
+     
+diff --git a/Envs/environment_handler.py b/Envs/environment_handler.py
+index 3a69087..bcd5643 100644
+--- a/Envs/environment_handler.py
++++ b/Envs/environment_handler.py
+@@ -51,6 +51,8 @@ class EnvironmentHandler():
+         message_dict = {}
+         landmark_contact_dict = {}
+         time_till_end_dict = {}
++        tasks_success_rate = {}
++        
+         for a in range(self.env_config["num_agents"]):
+             obs = torch.zeros((1, self.env_config["num_envs"]) + self.observation_space.shape)
+             rewards = torch.zeros(1, (self.env_config["num_envs"]))
+@@ -60,6 +62,7 @@ class EnvironmentHandler():
+             true_goal = torch.zeros(self.env_config["num_landmarks"], (self.env_config["num_envs"]))
+             message = torch.zeros((1, self.env_config["num_envs"], self.env_config["message_length"]))
+             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
++            agent_tasks_success_rate = {"activate_landmarks":0.0, "double_activate":0.0, "lemon_hunt":0.0, "crafting":0.0, "in_out_machine":0.0, "dropoff":0.0}
+ 
+             stages_info = []
+             for s in range(self.env_config["stages"] * 3):
+@@ -69,7 +72,7 @@ class EnvironmentHandler():
+             time_till_end = torch.zeros((1, self.env_config["num_envs"]))
+ 
+             for env in obs_in.keys():
+-                #print(env)
++                
+                 if "agent_{0}".format(a) in obs_in[env].keys():
+                     if self.env_config["env_name"] in COMM_ENVS:
+                         message[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["message_observation_space"])
+@@ -113,13 +116,26 @@ class EnvironmentHandler():
+                 for s in range(self.env_config["stages"]):
+                     infos_dict["agent_{0}".format(a)]["coop_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]]
+                     infos_dict["agent_{0}".format(a)]["single_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]*2]
++                
++                #Track the success rate of each task
++                for task in agent_tasks_success_rate.keys():
++                    task_success = 0.0
++                    task_sampled = 0.0
++                    for env in range(self.env_config["num_envs"]):
++                        task_success += info[env]["agent_{0}".format(a)]["task_successes"][task]
++                        task_sampled +=  info[env]["agent_{0}".format(a)]["tasks_sampled"][task]
++                        if task_sampled > 0:
++                            agent_tasks_success_rate[task] = task_success / task_sampled
++                        else:
++                            agent_tasks_success_rate[task] = 0.0
++                    tasks_success_rate["agent_{0}".format(a)] = agent_tasks_success_rate
+         
+-        dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
++        dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])])
+             
+         if self.env_config["env_name"] in COMM_ENVS:
+-            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
++            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict, tasks_success_rate
+         else:
+-            return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
++            return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict, tasks_success_rate
+     
+ 
+     def reset_all(self, idx: List[int]) -> Tuple[Dict, Dict]:
+diff --git a/Envs/test_env.py b/Envs/test_env.py
+index 3240429..14a2eec 100644
+--- a/Envs/test_env.py
++++ b/Envs/test_env.py
+@@ -1,10 +1,21 @@
+ from crafting_env import CraftingEnv, CustomRewardOnActivation
++from coop_crafting import CoopCraftingEnv, CustomRewardOnDoubleActivation
+ 
+ from simple_playgrounds.playgrounds.layouts import SingleRoom
+ from simple_playgrounds.engine import Engine
+ from simple_playgrounds.agents.parts.controllers import Keyboard
+ from simple_playgrounds.agents.agents import BaseAgent, HeadAgent
+ from simple_playgrounds.agents.sensors.topdown_sensors import TopdownSensor
++from simple_playgrounds.elements.collection.activable import ActivableByGem, RewardOnActivation, ActivableElement
++from simple_playgrounds.elements.collection.contact import ContactElement
++from simple_playgrounds.elements.collection.basic import Physical
++from simple_playgrounds.common.timer import Timer
++from simple_playgrounds.common.definitions import ElementTypes, CollisionTypes
++from simple_playgrounds.common.position_utils import CoordinateSampler
++from simple_playgrounds.elements.element import GemElement
++
++
++
+ 
+ import cv2
+ import numpy as np
+@@ -17,6 +28,40 @@ def plt_image(img):
+     plt.show()
+ 
+ 
++class TimedCustomRewardOnActivation(RewardOnActivation):
++    def __init__(self, agent_name, **kwargs):
++        super().__init__(reward=0, **kwargs)
++        self.agent_name = agent_name
++        self._reward = 0
++        self.active = False
++        self.spawned = False
++        
++        self.condition_satisfied = False
++        self.time_limit = 0
++        self.activated = False
++
++    def activate(self, activating):
++        list_remove = None
++        elem_add = None
++
++        if isinstance(activating, BaseAgent):
++            self.time_limit = 100
++            self.active = True
++            self._texture_surface.fill(color=(255, 255, 255))
++
++        return list_remove, elem_add
++    
++    def check_if_active(self):
++        if self.active:
++            if self.time_limit > 0:
++                self.activated = True
++                self.time_limit -= 1
++            else:
++                self.active = False
++                self._texture_surface.fill(color=(255, 0, 0))
++        else:
++            self.active = False
++
+ 
+ 
+ def compute_reward(playground, task_dict, stage, agent_goal_dict, success_rate_dict, 
+@@ -114,11 +159,15 @@ if __name__ == '__main__':
+     config = {"num_landmarks": 1,
+               "num_agents": 2,
+               "timelimit": 10000,
+-              "coop_chance":0.0,
++              "coop_chance":1.0,
++              "forced_coop_rate": 0.0,
+               "message_length": 3,
+               "vocab_size": 3,
+               "message_penalty": 0.02,
+               "seed": 42,
++              "stages": 3,
++              "agent_resolution": 64,
++              "new_tasks": True,
+               "playground_width": 300,
+               "playground_height": 300,
+               "single_goal": True,
+@@ -126,7 +175,7 @@ if __name__ == '__main__':
+               "random_assign": True,
+               "min_prob": 0.025,
+               "max_prob": 0.95,}
+-    base_env = CraftingEnv(config)
++    base_env = CoopCraftingEnv(config)
+ 
+     playground = SingleRoom(size=(config["playground_width"], config["playground_height"]), wall_type='light')
+     engine = Engine(time_limit=config["timelimit"], playground=playground, screen=True)
+@@ -145,7 +194,10 @@ if __name__ == '__main__':
+         
+     end_conditions = ["no_object", "object_exists"]
+ 
+-    task_dict = base_env.sample_task_tree(3, end_conditions, possible_objects, element_coordinates, env_coordinates, 0, playground)
++    
++
++    task_dict = base_env.sample_task_tree(3, end_conditions, possible_objects, element_coordinates, env_coordinates,2, 0, playground, agent_name=agent.name,
++                                          forced_coop=False)
+ 
+     success_rate_dict = {}
+     for s in range(1, 4):
+@@ -157,13 +209,19 @@ if __name__ == '__main__':
+ 
+     agent_goal_dict = {}
+     agent_goal_dict[agent.name] = np.zeros(config["num_landmarks"])
+-    print(task_dict)
++    #print(task_dict)
+     time.sleep(10)
+ 
+-
+-    while engine.game_on:
+-
++    stage = 1
++    for i in range(1000):
++        
+         engine.update_screen()
++        #reward_on_activation.check_if_active()
++        for element in playground.elements:
++            if isinstance(element, TimedCustomRewardOnActivation) or isinstance(element, CustomRewardOnActivation):
++                element.check_if_active()
++            if isinstance(element, CustomRewardOnDoubleActivation):
++                element.check_if_active_and_stage(stage)
+ 
+         actions = {}
+         for agent in engine.agents:
+@@ -172,13 +230,14 @@ if __name__ == '__main__':
+         terminate = engine.step(actions)
+         engine.update_observations()
+         rewards, infos, end_condition_object_has_existed = compute_reward(playground, task_dict, 3, agent_goal_dict, success_rate_dict, 
+-                                        stage_first_reward_dict, end_condition_object_has_existed)
+-        print(rewards, infos)
++                                       stage_first_reward_dict, end_condition_object_has_existed)
++        #print(rewards, infos)
++        stage = 10 * rewards["agent_0"] + 1 
+ 
+         cv2.imshow('agent', engine.generate_agent_image(agent, max_size_pg=300))
+         cv2.waitKey(20)
+         
+         if terminate:
+-            print(task_dict)
++            #print(task_dict)
+             engine.terminate()
+ 
+diff --git a/Utils/__pycache__/train_utils.cpython-310.pyc b/Utils/__pycache__/train_utils.cpython-310.pyc
+index 17d38d9..3f39c1c 100644
+Binary files a/Utils/__pycache__/train_utils.cpython-310.pyc and b/Utils/__pycache__/train_utils.cpython-310.pyc differ
+diff --git a/Utils/train_utils.py b/Utils/train_utils.py
+index 479849a..f932833 100644
+--- a/Utils/train_utils.py
++++ b/Utils/train_utils.py
+@@ -64,6 +64,7 @@ def build_storage_from_batch(batch, config):
+     next_contact = {}
+     next_time_till_end = {}
+     stage_success_info = {}
++    tasks_success_rates = {}
+     for a in range(config["env_config"]["num_agents"]):
+         agent = "agent_{0}".format(a)
+         storage_out[agent] = {}
+@@ -108,19 +109,23 @@ def build_storage_from_batch(batch, config):
+                     stage_success_info[agent]["stage_{0}".format(s)] = {"average_success": (num_stage_sampled, num_stage_success),
+                                                                         "coop_success": (num_coop_stage_sampled, num_coop_stage_success),
+                                                                         "single_success": (num_single_stage_sampled, num_single_stage_success)}
++                    
++                    agent_task_success_rates = {"activate_landmarks":0.0, "double_activate":0.0, "lemon_hunt":0.0, "crafting":0.0, "in_out_machine":0.0, "dropoff":0.0}
++                    for task in agent_task_success_rates.keys():
++                        agent_task_success_rates[task] = sum([batch[i][9][agent][task] for i in range(len(batch))]) / len(batch)
++                    tasks_success_rates[agent] = agent_task_success_rates
++
+                 else:
+                     stage_success_info[agent]["stage_{0}".format(s)] = {"average_success": (num_stage_sampled, num_stage_success)}
+ 
+ 
+-
+-    
+         if config["env_config"]["env_name"] in COMM_ENVS:
+-            next_messages[agent] = torch.cat([batch[i][9][agent] for i in range(len(batch))], dim=1)
++            next_messages[agent] = torch.cat([batch[i][10][agent] for i in range(len(batch))], dim=1)
+     
+     if config["env_config"]["env_name"] in COMM_ENVS:
+-        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
++        return storage_out, next_obs, next_messages, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info, tasks_success_rates
+     else:
+-        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info
++        return storage_out, next_obs, next_dones, success_rate, achieved_goal, achieved_goal_success, next_contact, next_time_till_end, stage_success_info, tasks_success_rates
+ 
+ 
+ 
+@@ -251,7 +256,8 @@ def handle_dones(dones):
+ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sampled, coop_stage_success_dict, coop_stages_sampled,
+                single_stage_success_dict, single_stages_sampled, epoch, average_reward_dict, best_average_reward_dict, 
+                success_rate_dict, best_sucess_rate_dict, success, achieved_goal, achieved_goal_success,
+-               stages_average_success_rate, coop_stages_average_success_rate, single_stages_average_success_rate, config):
++               stages_average_success_rate, coop_stages_average_success_rate, single_stages_average_success_rate, 
++               task_success_rates, config):
+     """Print info for each episode"""
+     end_of_episode_info = {}
+     print("Epoch: {0}".format(epoch))
+@@ -336,6 +342,11 @@ def print_info(storage, total_completed, rewards, stage_success_dict, stages_sam
+                 else:
+                      print("Stage {0}: {1} Successes; {2} Samples; {3} Success Rate; ".format(s, 
+                         stage_successes, stage_samples, stage_success_rate))
++            
++            if config["env_config"]["test"]:
++                print("Agent {0} Tasks Success Rates: Activate Landmarks: {1}; Double Activate: {2}; Lemon Hunt: {3}; Crafting: {4}; In Out Machine: {5}; Dropoff: {6}".format(id,
++                    task_success_rates[a]["activate_landmarks"], task_success_rates[a]["double_activate"], task_success_rates[a]["lemon_hunt"], task_success_rates[a]["crafting"],
++                    task_success_rates[a]["in_out_machine"], task_success_rates[a]["dropoff"]))
+         else:
+             pass
+ 
+@@ -406,9 +417,9 @@ def record_video(config, env, policy_dict, episodes, video_path, update, test=Fa
+             message_actions = actions[:,:, env.movement_shape[0]:]
+             input_dict["actions"] = movement_actions
+             input_dict["messages"] = message_actions
+-            next_obs, next_messages_in, rewards ,dones, next_contact, next_time_till_end, info = env.step(input_dict)
++            next_obs, next_messages_in, rewards ,dones, next_contact, next_time_till_end, info, _ = env.step(input_dict)
+         else:
+-            next_obs, rewards, dones, next_contact, next_time_till_end, info = env.step(actions)
++            next_obs, rewards, dones, next_contact, next_time_till_end, info, _ = env.step(actions)
+         next_dones = handle_dones(dones)
+         for a in range(config["env_config"]["num_agents"]):
+             if s < num_steps - 1:
+diff --git a/__pycache__/agent.cpython-310.pyc b/__pycache__/agent.cpython-310.pyc
+index c5d7c01..9432135 100644
+Binary files a/__pycache__/agent.cpython-310.pyc and b/__pycache__/agent.cpython-310.pyc differ
+diff --git a/__pycache__/policy.cpython-310.pyc b/__pycache__/policy.cpython-310.pyc
+index 8ae1e1c..ffc828b 100644
+Binary files a/__pycache__/policy.cpython-310.pyc and b/__pycache__/policy.cpython-310.pyc differ
+diff --git a/mp_train.py b/mp_train.py
+index 219d9f0..4573013 100644
+--- a/mp_train.py
++++ b/mp_train.py
+@@ -245,14 +245,14 @@ def rollout(pid, policy_dict, train_queue, done, config):
+                     input_dict["actions"] = actions.cpu()
+                     input_dict["messages"] = messages.cpu()
+ 
+-                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos = env.step(input_dict)
++                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos, task_success_rates = env.step(input_dict)
+                     
+                 
+                 else:
+                     actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
+                                     for a in range(config["env_config"]["num_agents"])], dim=1)
+     
+-                    next_obs, rewards, dones, next_contact, next_time_till_end, infos = env.step(actions.cpu())
++                    next_obs, rewards, dones, next_contact, next_time_till_end, infos, task_success_rates = env.step(actions.cpu())
+ 
+                 
+                 #Handle the dones and convert the bools to binary tensors
+@@ -323,7 +323,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
+                         
+                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
+                                          achieved_goal_success, next_contact, next_time_till_end,
+-                                         stages_success_info, next_messages_in,), block=True)
++                                         stages_success_info, task_success_rates, next_messages_in,), block=True)
+                     else:
+ 
+                         if config["device"] == "cuda":
+@@ -331,7 +331,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
+                                                     achieved_goal_success, next_contact, next_time_till_end, stages_success_info])
+                         
+                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
+-                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info), block=True)
++                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info, task_success_rates), block=True)
+                     done[pid] = 1
+                     rollout_step = 0
+                     #Last lstm state is the initial lstm state for the next rollout
+@@ -510,9 +510,9 @@ if __name__ == "__main__":
+                     start = time.time()
+ 
+                     if config["env_config"]["env_name"] in COMM_ENVS:
+-                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
++                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info, task_success_rates = build_storage_from_batch(batch, config)
+                     else:
+-                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
++                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info , task_success_rates = build_storage_from_batch(batch, config)
+ 
+                     #Compute the advantages for each policy
+                     for a in range(config["env_config"]["num_agents"]):
+@@ -609,7 +609,8 @@ if __name__ == "__main__":
+                                                                 update, average_reward, best_average_reward,
+                                                                 average_success_rate, best_average_success_rate, total_successes,
+                                                                 goal_line, goal_line_success, stages_rolling_success_rate, 
+-                                                                coop_stages_rolling_success_rate, single_stages_rolling_success_rate, config)
++                                                                coop_stages_rolling_success_rate, single_stages_rolling_success_rate, 
++                                                                task_success_rates, config)
+                             
+ 
+                             for a in range(config["env_config"]["num_agents"]):
+diff --git a/testing.py b/testing.py
+index 891dc20..f655ae1 100644
+--- a/testing.py
++++ b/testing.py
+@@ -259,14 +259,14 @@ def rollout(pid, policy_dict, train_queue, done, config):
+                     input_dict["actions"] = actions.cpu()
+                     input_dict["messages"] = messages.cpu()
+ 
+-                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos = env.step(input_dict)
++                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos, task_success_rates, = env.step(input_dict)
+                     
+                 
+                 else:
+                     actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
+                                     for a in range(config["env_config"]["num_agents"])], dim=1)
+     
+-                    next_obs, rewards, dones, next_contact, next_time_till_end, infos = env.step(actions.cpu())
++                    next_obs, rewards, dones, next_contact, next_time_till_end, infos, task_success_rates = env.step(actions.cpu())
+ 
+                 
+                 #Handle the dones and convert the bools to binary tensors
+@@ -337,7 +337,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
+                         
+                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
+                                          achieved_goal_success, next_contact, next_time_till_end,
+-                                         stages_success_info, next_messages_in,), block=True)
++                                         stages_success_info, task_success_rates, next_messages_in,), block=True)
+                     else:
+ 
+                         if config["device"] == "cuda":
+@@ -345,7 +345,8 @@ def rollout(pid, policy_dict, train_queue, done, config):
+                                                     achieved_goal_success, next_contact, next_time_till_end, stages_success_info])
+                         
+                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
+-                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info), block=True)
++                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info, 
++                                         task_success_rates), block=True)
+                     done[pid] = 1
+                     rollout_step = 0
+                     #Last lstm state is the initial lstm state for the next rollout
+@@ -524,9 +525,9 @@ if __name__ == "__main__":
+                     start = time.time()
+ 
+                     if config["env_config"]["env_name"] in COMM_ENVS:
+-                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
++                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info, task_success_rates = build_storage_from_batch(batch, config)
+                     else:
+-                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
++                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info, task_success_rates = build_storage_from_batch(batch, config)
+                                 
+                     if not config["debug"]:
+                         update_ratio = ((config["env_config"]["timelimit"] * config["env_config"]["num_envs"] * config["num_workers"]) // config["rollout_steps"])
+@@ -582,7 +583,8 @@ if __name__ == "__main__":
+                                                                 update, average_reward, best_average_reward,
+                                                                 average_success_rate, best_average_success_rate, total_successes,
+                                                                 goal_line, goal_line_success, stages_rolling_success_rate, 
+-                                                                coop_stages_rolling_success_rate, single_stages_rolling_success_rate, config)
++                                                                coop_stages_rolling_success_rate, single_stages_rolling_success_rate, 
++                                                                task_success_rates, config)
+                             
+ 
+                             for a in range(config["env_config"]["num_agents"]):
+@@ -612,6 +614,8 @@ if __name__ == "__main__":
+                                             log_dict["agent_{0}_stage_{1}_single_successes".format(a, s)] = agent_info["stage_{0}_single_successes".format(s)]
+                                             log_dict["agent_{0}_stage_{1}_single_success_rate".format(a, s)] = agent_info["stage_{0}_single_success_rate".format(s)]
+ 
++                                for task in task_success_rates.keys():
++                                    log_dict["{0}_success_rate".format(task)] = task_success_rates[task]
+                                 wandb.log(log_dict)
+                                                                                                                 
+                             #Record a video every n updates
+@@ -626,7 +630,7 @@ if __name__ == "__main__":
+ 
+                                 if not os.path.exists(video_path):
+                                     os.makedirs(video_path)
+-                                record_video(video_config, video_env, policy_dict, 20, video_path, update)
++                                record_video(video_config, video_env, policy_dict, 10, video_path, update)
+                                 print("Recorded video for update {0}".format(update))                                                                
+                     
+                     

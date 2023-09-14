@@ -51,6 +51,8 @@ class EnvironmentHandler():
         message_dict = {}
         landmark_contact_dict = {}
         time_till_end_dict = {}
+        tasks_success_rate = {}
+        
         for a in range(self.env_config["num_agents"]):
             obs = torch.zeros((1, self.env_config["num_envs"]) + self.observation_space.shape)
             rewards = torch.zeros(1, (self.env_config["num_envs"]))
@@ -60,6 +62,7 @@ class EnvironmentHandler():
             true_goal = torch.zeros(self.env_config["num_landmarks"], (self.env_config["num_envs"]))
             message = torch.zeros((1, self.env_config["num_envs"], self.env_config["message_length"]))
             landmark_contact = torch.zeros((1, self.env_config["num_envs"]))
+            agent_tasks_success_rate = {"activate_landmarks":0.0, "double_activate":0.0, "lemon_hunt":0.0, "crafting":0.0, "in_out_machine":0.0, "dropoff":0.0}
 
             stages_info = []
             for s in range(self.env_config["stages"] * 3):
@@ -69,7 +72,7 @@ class EnvironmentHandler():
             time_till_end = torch.zeros((1, self.env_config["num_envs"]))
 
             for env in obs_in.keys():
-                #print(env)
+                
                 if "agent_{0}".format(a) in obs_in[env].keys():
                     if self.env_config["env_name"] in COMM_ENVS:
                         message[0][env] = torch.Tensor(obs_in[env]["agent_{0}".format(a)]["message_observation_space"])
@@ -113,13 +116,26 @@ class EnvironmentHandler():
                 for s in range(self.env_config["stages"]):
                     infos_dict["agent_{0}".format(a)]["coop_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]]
                     infos_dict["agent_{0}".format(a)]["single_success_stage_{0}".format(s+1)] = stages_info[s+self.env_config["stages"]*2]
+                
+                #Track the success rate of each task
+                for task in agent_tasks_success_rate.keys():
+                    task_success = 0.0
+                    task_sampled = 0.0
+                    for env in range(self.env_config["num_envs"]):
+                        task_success += info[env]["agent_{0}".format(a)]["task_successes"][task]
+                        task_sampled +=  info[env]["agent_{0}".format(a)]["tasks_sampled"][task]
+                        if task_sampled > 0:
+                            agent_tasks_success_rate[task] = task_success / task_sampled
+                        else:
+                            agent_tasks_success_rate[task] = 0.0
+                    tasks_success_rate["agent_{0}".format(a)] = agent_tasks_success_rate
         
-        dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])]) 
+        dones_dict["__all__"] = np.array([dones_in[i]["__all__"] for i in range(self.env_config["num_envs"])])
             
         if self.env_config["env_name"] in COMM_ENVS:
-            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
+            return obs_dict, message_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict, tasks_success_rate
         else:
-            return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict
+            return obs_dict, rewards_dict, dones_dict, landmark_contact_dict, time_till_end_dict, infos_dict, tasks_success_rate
     
 
     def reset_all(self, idx: List[int]) -> Tuple[Dict, Dict]:

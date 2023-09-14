@@ -1,0 +1,145 @@
+wandb_version: 1
+
+env_config:
+  desc: null
+  value:
+    env_name: CoopCraftingEnv
+    num_envs: 16
+    num_agents: 2
+    num_landmarks: 4
+    timelimit: 10
+    coop_chance: 1.0
+    seed: 1
+    single_goal: true
+    single_reward: true
+    vocab_size: 3
+    message_length: 1
+    random_assign: true
+    min_prob: 0.025
+    max_prob: 0.95
+    playground_height: 300
+    playground_width: 300
+    agent_resolution: 64
+    stages: 3
+    new_tasks: true
+    forced_coop_rate: 1.0
+    test: false
+pretrained:
+  desc: null
+  value: null
+total_steps:
+  desc: null
+  value: 250000000.0
+rollout_steps:
+  desc: null
+  value: 1280
+batch_size:
+  desc: null
+  value: 1280
+seed:
+  desc: null
+  value: 1
+anneal_lr:
+  desc: null
+  value: true
+lr:
+  desc: null
+  value: 0.00025
+gae:
+  desc: null
+  value: true
+gae_lambda:
+  desc: null
+  value: 1.0
+gamma:
+  desc: null
+  value: 0.99
+num_minibatches:
+  desc: null
+  value: 4
+update_epochs:
+  desc: null
+  value: 4
+norm_adv:
+  desc: null
+  value: true
+clip_coef:
+  desc: null
+  value: 0.1
+clip_vloss:
+  desc: null
+  value: true
+ent_coef:
+  desc: null
+  value: 0.001
+vf_coef:
+  desc: null
+  value: 1.0
+max_grad_norm:
+  desc: null
+  value: 0.5
+target_kl:
+  desc: null
+  value: null
+device:
+  desc: null
+  value: cpu
+num_workers:
+  desc: null
+  value: 8
+record_video_every:
+  desc: null
+  value: 10
+debug:
+  desc: null
+  value: false
+run_name:
+  desc: null
+  value: null
+model_config:
+  desc: null
+  value:
+    lstm_layers: 1
+    lstm_in_size: 64
+    lstm_hidden_size: 64
+    channel_1: 16
+    channel_2: 32
+    channel_3: 32
+    use_last_action_reward: true
+    contact: true
+    time_till_end: false
+    one_hot_message: false
+    actor_hidden_size: 64
+    critic_hidden_size: 64
+_wandb:
+  desc: null
+  value:
+    code_path: code/mp_train.py
+    python_version: 3.10.11
+    cli_version: 0.15.3
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1694709853.261881
+    t:
+      1:
+      - 1
+      - 2
+      - 3
+      - 30
+      - 55
+      2:
+      - 1
+      - 2
+      - 3
+      - 30
+      - 55
+      3:
+      - 13
+      - 16
+      - 23
+      - 35
+      4: 3.10.11
+      5: 0.15.3
+      8:
+      - 5

@@ -471,7 +471,7 @@ class TimedCustomRewardOnActivation(RewardOnActivation):
         if isinstance(activating, BaseAgent):
             self.time_limit = 10
             self.active = True
-            self._texture_surface.fill(color=(255, 255, 255))
+            self._texture_surface.fill(color=(0, 100, 250))
 
         return list_remove, elem_add
     
@@ -482,7 +482,7 @@ class TimedCustomRewardOnActivation(RewardOnActivation):
                 self.time_limit -= 1
             else:
                 self.active = False
-                self._texture_surface.fill(color=(100, 250, 25))
+                self._texture_surface.fill(color=(255, 100, 100))
         else:
             self.active = False
 
@@ -778,10 +778,32 @@ class CoopCraftingEnv(MultiAgentEnv):
                     task_dict = task_dict
                 else:
                     task_dict = second_task_dict
+            
+            task_successes = {"activate_landmarks":0,
+                                   "double_activate":0,
+                                   "lemon_hunt":0,
+                                   "crafting":0,
+                                   "in_out_machine":0,
+                                   "dropoff":0}
+        
+            tasks_sampled =  {"activate_landmarks":0,
+                                   "double_activate":0,
+                                   "lemon_hunt":0,
+                                   "crafting":0,
+                                   "in_out_machine":0,
+                                   "dropoff":0}
+        
+            for stage in range(1, stage+1):
+                stage_task = task_dict["stage_{0}".format(stage)]["task"]
+                tasks_sampled[stage_task] += 1
          
             for s in range(1, stage+1):
                 condition_obj = task_dict["stage_{0}".format(s)]["condition_object"]
                 if condition_obj.condition_satisfied:
+                    #Log which task was succesfully completed
+                    task = task_dict["stage_{0}".format(s)]["task"]
+                    task_successes[task] += 1
+
                     idx = 0
                     switch = False #switch to compute success rates correctly for logging. Keeping the old version for consistency during training
                     if switch:
@@ -809,9 +831,11 @@ class CoopCraftingEnv(MultiAgentEnv):
 
                 
             if self.stage_first_reward_dict[agent.name]["stage_{0}".format(stage)] and int(reward) == stage:
-                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end}
+                infos[agent.name] = {"success": 1.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end,
+                                     "tasks_sampled": tasks_sampled, "task_successes": task_successes}
             else:
-                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end}
+                infos[agent.name] = {"success": 0.0, "goal_line": 0.0, "true_goal":  self.agent_goal_dict[agent.name], "time_till_end": time_till_end,
+                                     "tasks_sampled": tasks_sampled, "task_successes": task_successes}
             
             for s in range(1, stage + 1):
                 if self.success_rate_dict["stage_{0}".format(s)][agent.name][-1]: 
@@ -825,6 +849,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                             infos[agent.name]["single_success_stage_{0}".format(s)] = 1.0
 
                         self.stage_first_reward_dict[agent.name]["stage_{0}".format(s)] = False
+
                     else:
                         infos[agent.name]["success_stage_{0}".format(s)] = 0.0
 
@@ -935,7 +960,7 @@ class CoopCraftingEnv(MultiAgentEnv):
         possible_object_types = possible_objects.copy()
         task_dict = {}
         end_condition = random.choice(end_conditions)
-        end_condition = "no_object"
+        #end_condition = "object_exists"
         end_condition_object = random.choice(possible_object_types)
         possible_object_types.remove(end_condition_object)
         end_condition_object_shape = end_condition_object[0]
@@ -1092,7 +1117,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                     possible_agent_names.append(agent_name)
             else:
                 if forced_coop:
-                    time_limit = 10
+                    time_limit = 2
                 else:
                     time_limit = 300
 
@@ -1194,7 +1219,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             if num_agents < 2:
                 time_limit = 200
             else:
-                time_limit = 10
+                time_limit = 2
 
             pressure_plate =  TimedCustomRewardOnActivation(radius=15, 
                                                             time_limit=time_limit, 
@@ -1261,7 +1286,8 @@ class CoopCraftingEnv(MultiAgentEnv):
                                                 name="landmark0",
                                                 timelimit=10,
                                                 coop=forced_coop,
-                                                second_agent=None if num_agents < 2 else possible_agent_names[1],
+                                                #second_agent=None if num_agents < 2 else possible_agent_names[1],
+                                                second_agent="agent_1",
                                                 temporary=True)
             
             if len (task_out_objects) > 1:
@@ -1405,6 +1431,13 @@ class CoopCraftingEnv(MultiAgentEnv):
                     stage_task = random.choice(["crafting", "in_out_machine"])
                 else:
                     stage_task = "crafting"
+        
+        #if stage == 1:
+        #    stage_task = "pressure_plate"
+        #elif stage == 2:
+        #    stage_task = "double_activate"
+        #elif stage == 3:
+        #    stage_task = "crafting"
 
         return stage_task
     
