@@ -259,14 +259,14 @@ def rollout(pid, policy_dict, train_queue, done, config):
                     input_dict["actions"] = actions.cpu()
                     input_dict["messages"] = messages.cpu()
 
-                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos = env.step(input_dict)
+                    next_obs, next_messages_in, rewards, dones, next_contact, next_time_till_end, infos, task_success_rates, = env.step(input_dict)
                     
                 
                 else:
                     actions = torch.cat([storage["agent_{0}".format(a)]["actions"][rollout_step].unsqueeze(dim=1)
                                     for a in range(config["env_config"]["num_agents"])], dim=1)
     
-                    next_obs, rewards, dones, next_contact, next_time_till_end, infos = env.step(actions.cpu())
+                    next_obs, rewards, dones, next_contact, next_time_till_end, infos, task_success_rates = env.step(actions.cpu())
 
                 
                 #Handle the dones and convert the bools to binary tensors
@@ -337,7 +337,7 @@ def rollout(pid, policy_dict, train_queue, done, config):
                         
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
                                          achieved_goal_success, next_contact, next_time_till_end,
-                                         stages_success_info, next_messages_in,), block=True)
+                                         stages_success_info, task_success_rates, next_messages_in,), block=True)
                     else:
 
                         if config["device"] == "cuda":
@@ -345,7 +345,8 @@ def rollout(pid, policy_dict, train_queue, done, config):
                                                     achieved_goal_success, next_contact, next_time_till_end, stages_success_info])
                         
                         train_queue.put((storage, next_obs, next_dones, success_rate, achieved_goal, 
-                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info), block=True)
+                                         achieved_goal_success, next_contact, next_time_till_end, stages_success_info, 
+                                         task_success_rates), block=True)
                     done[pid] = 1
                     rollout_step = 0
                     #Last lstm state is the initial lstm state for the next rollout
@@ -524,9 +525,9 @@ if __name__ == "__main__":
                     start = time.time()
 
                     if config["env_config"]["env_name"] in COMM_ENVS:
-                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
+                        storage, next_obs, next_messages_in, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info, task_success_rates = build_storage_from_batch(batch, config)
                     else:
-                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info = build_storage_from_batch(batch, config)
+                        storage, next_obs, next_dones, success_rate, goal_line, goal_line_success, next_contact, next_time_till_end, stage_success_info, task_success_rates = build_storage_from_batch(batch, config)
                                 
                     if not config["debug"]:
                         update_ratio = ((config["env_config"]["timelimit"] * config["env_config"]["num_envs"] * config["num_workers"]) // config["rollout_steps"])
@@ -582,7 +583,8 @@ if __name__ == "__main__":
                                                                 update, average_reward, best_average_reward,
                                                                 average_success_rate, best_average_success_rate, total_successes,
                                                                 goal_line, goal_line_success, stages_rolling_success_rate, 
-                                                                coop_stages_rolling_success_rate, single_stages_rolling_success_rate, config)
+                                                                coop_stages_rolling_success_rate, single_stages_rolling_success_rate, 
+                                                                task_success_rates, config)
                             
 
                             for a in range(config["env_config"]["num_agents"]):
@@ -612,6 +614,8 @@ if __name__ == "__main__":
                                             log_dict["agent_{0}_stage_{1}_single_successes".format(a, s)] = agent_info["stage_{0}_single_successes".format(s)]
                                             log_dict["agent_{0}_stage_{1}_single_success_rate".format(a, s)] = agent_info["stage_{0}_single_success_rate".format(s)]
 
+                                for task in task_success_rates.keys():
+                                    log_dict["{0}_success_rate".format(task)] = task_success_rates[task]
                                 wandb.log(log_dict)
                                                                                                                 
                             #Record a video every n updates
@@ -626,7 +630,7 @@ if __name__ == "__main__":
 
                                 if not os.path.exists(video_path):
                                     os.makedirs(video_path)
-                                record_video(video_config, video_env, policy_dict, 20, video_path, update)
+                                record_video(video_config, video_env, policy_dict, 10, video_path, update)
                                 print("Recorded video for update {0}".format(update))                                                                
                     
                     
