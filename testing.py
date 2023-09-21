@@ -147,6 +147,8 @@ parser.add_argument("--pretrained_forced_coop", type=float, default=1.0,
                     help="Rate of multi agent episodes with forced cooperative goals during pretraining")
 parser.add_argument("--record_video", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Record a video of the evaluation run")
+parser.add_argument("--self_play_agent", default=None, type=int,
+                    help="Index of the agent to use for self play evaluation")
 
 
 
@@ -386,13 +388,14 @@ if __name__ == "__main__":
     
 
     config = build_config(args)
-    config["env_config"]["test"] = True
+    config["env_config"]["test"] = False
     config["env_config"]["test_shape"] = args.test_shape
     config["env_config"]["test_color"] = args.test_color
     config["env_config"]["all_test_objects"] = args.all_test_objects
     config["forced_coop_rate"] = args.pretrained_forced_coop
     config["video_path"] = args.video_path
     config["record_video"] = args.record_video
+    config["self_play_agent"] = args.self_play_agent
     device = config["device"]
 
     #Build the environemnt
@@ -408,9 +411,13 @@ if __name__ == "__main__":
                             for a in range(config["env_config"]["num_agents"])}
 
     #Load the pretrained models 
-    for a in range(config["env_config"]["num_agents"]):
-        agent_dict["agent_{0}".format(a)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
-        optimizer_dict["agent_{0}".format(a)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
+    for idx in range(config["env_config"]["num_agents"]):
+        if config["self_play_agent"] is not None:
+            a = config["self_play_agent"]
+        else:
+            a = idx
+        agent_dict["agent_{0}".format(idx)].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["model"])
+        optimizer_dict["agent_{0}".format(idx)]["optimizer"].load_state_dict(torch.load(os.path.join(config["pretrained"], "agent_{0}_model.pt".format(a)))["optimizer"])
         print("Loaded pretrained model for agent {0}".format(a))
 
     #Build the policies

@@ -469,20 +469,20 @@ class TimedCustomRewardOnActivation(RewardOnActivation):
         elem_add = None
 
         if isinstance(activating, BaseAgent):
-            self.time_limit = 10
+            self.active_time_limit = self.time_limit
             self.active = True
-            self._texture_surface.fill(color=(0, 100, 250))
+            self._texture_surface.fill(color=(0, 100, 255))
 
         return list_remove, elem_add
     
     def check_if_active(self):
         if self.active:
-            if self.time_limit > 0:
+            if self.active_time_limit > 0:
                 self.activated = True
-                self.time_limit -= 1
+                self.active_time_limit -= 1
             else:
                 self.active = False
-                self._texture_surface.fill(color=(255, 100, 100))
+                self._texture_surface.fill(color=(100, 200, 100))
         else:
             self.active = False
 
@@ -784,14 +784,16 @@ class CoopCraftingEnv(MultiAgentEnv):
                                    "lemon_hunt":0,
                                    "crafting":0,
                                    "in_out_machine":0,
-                                   "dropoff":0}
+                                   "dropoff":0,
+                                   "pressure_plate":0}
         
             tasks_sampled =  {"activate_landmarks":0,
                                    "double_activate":0,
                                    "lemon_hunt":0,
                                    "crafting":0,
                                    "in_out_machine":0,
-                                   "dropoff":0}
+                                   "dropoff":0,
+                                   "pressure_plate":0}
         
             for stage in range(1, stage+1):
                 stage_task = task_dict["stage_{0}".format(stage)]["task"]
@@ -928,7 +930,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                     assert False, "Agent name not recognized"
             else:
                 color = possible_agent_colors[i]
-            #color = (255, 255, 255)
+            #color = (170, 170, 170)
             agent = BaseAgent(
             controller=External(),
             radius=12,
@@ -960,7 +962,7 @@ class CoopCraftingEnv(MultiAgentEnv):
         possible_object_types = possible_objects.copy()
         task_dict = {}
         end_condition = random.choice(end_conditions)
-        #end_condition = "object_exists"
+        end_condition = "object_exists"
         end_condition_object = random.choice(possible_object_types)
         possible_object_types.remove(end_condition_object)
         end_condition_object_shape = end_condition_object[0]
@@ -968,7 +970,7 @@ class CoopCraftingEnv(MultiAgentEnv):
 
         if end_condition == "object_exists":
             end_condition_object = Chest(physical_shape=end_condition_object_shape, radius=10, 
-                                        texture=ColorTexture(color=end_condition_object_color, size=10), 
+                                       texture=ColorTexture(color=end_condition_object_color, size=10), 
                                         name="end_condition_object", condition_obj=True, temporary=True)
         else:
             end_condition_object = "no_object"
@@ -1085,7 +1087,7 @@ class CoopCraftingEnv(MultiAgentEnv):
 
             dropoff = Chest(physical_shape="rectangle", 
                             radius=15,
-                            texture=ColorTexture(color=[140, 140, 140], size=15),
+                            texture=ColorTexture(color=[100, 100, 200], size=15),
                             condition_obj=False, movable=False, graspable=False,
                             dropoff=True,
                             name="dropoff",
@@ -1219,12 +1221,12 @@ class CoopCraftingEnv(MultiAgentEnv):
             if num_agents < 2:
                 time_limit = 200
             else:
-                time_limit = 2
+                time_limit = 20
 
             pressure_plate =  TimedCustomRewardOnActivation(radius=15, 
                                                             time_limit=time_limit, 
                                                             physical_shape="rectangle",
-                                                            texture=ColorTexture(color=[100, 250, 25], size=15),
+                                                            texture=ColorTexture(color=[100, 200, 100], size=15),
                                                             name="pressure_plate",
                                                             temporary=True)
             
@@ -1235,7 +1237,7 @@ class CoopCraftingEnv(MultiAgentEnv):
 
             pressure_plate_in_out = InputOutputMachine(physical_shape="rectangle", 
                                                         radius=15,
-                                                        texture=ColorTexture(color=[20, 40, 170], size=15),
+                                                        texture=ColorTexture(color=[50, 50, 200], size=15),
                                                         condition_obj=True,
                                                         activation_zone=pressure_plate,
                                                         name="in_out_machine_pressure_plate", 
@@ -1286,8 +1288,7 @@ class CoopCraftingEnv(MultiAgentEnv):
                                                 name="landmark0",
                                                 timelimit=10,
                                                 coop=forced_coop,
-                                                #second_agent=None if num_agents < 2 else possible_agent_names[1],
-                                                second_agent="agent_1",
+                                                second_agent=None if num_agents < 2 else possible_agent_names[1],
                                                 temporary=True)
             
             if len (task_out_objects) > 1:
@@ -1371,12 +1372,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                 else:
                     stage_task = random.choice(["crafting"])
 
-        #Only for testing emergent behavior for new version of landmarks
-        #if stage == 1:
-        #    stage_task = "activate_landmarks"
-        #elif stage == 2:
-        #    stage_task = "crafting"
-
         return stage_task
     
     def sample_stage_task(self, stage, num_stages, end_condition, assigned_stage_tasks):
@@ -1432,10 +1427,11 @@ class CoopCraftingEnv(MultiAgentEnv):
                 else:
                     stage_task = "crafting"
         
-        #if stage == 1:
-        #    stage_task = "pressure_plate"
+        #Only for testing emergent behavior for new version of landmarks
+        if stage == 1:
+            stage_task = "pressure_plate"
         #elif stage == 2:
-        #    stage_task = "double_activate"
+        #    stage_task = "in_out_machine"
         #elif stage == 3:
         #    stage_task = "crafting"
 
@@ -2315,11 +2311,14 @@ if __name__ == "__main__":
               "vocab_size": 3,
               "message_penalty": 0.02,
               "seed": 42,
+              "stages": 1,
+              "forced_coop_rate": 0.0,
               "playground_width": 300,
               "playground_height": 300,
               "single_goal": True,
               "single_reward": False,
               "random_assign": True,
+              "new_tasks": True,
               "min_prob": 0.025,
               "max_prob": 0.95,
               "agent_resolution": 128}
@@ -2337,7 +2336,7 @@ if __name__ == "__main__":
         obs = env.reset()
         img = env.render()
         cv2.imshow('agent', img)
-        cv2.waitKey(10)
+        cv2.waitKey(100)
 
         for e in range(4):
             #actions = {"agent_0": {"actuators_action_space": torch.Tensor(env.action_space["actuators_action_space"].sample()),
@@ -2352,4 +2351,4 @@ if __name__ == "__main__":
             print(obs.keys(), rewards.keys(), dones.keys(), info.keys())
             img = env.render()
             cv2.imshow('agent', img)
-            cv2.waitKey(10)
+            cv2.waitKey(100)
