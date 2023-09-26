@@ -732,8 +732,9 @@ class TestCraftingEnv(MultiAgentEnv):
         if self.coop:
             self.spawn_agents(element_coordinates, 2, self.shared_playground)
             #stage = self.stage_scheduler() #Change later but for now we only use 3 stages and sampling does not work for non coop
-            self.task_dict = self.sample_task_tree(self.stages, end_conditions, objects, element_coordinates, 
-                                              env_coordinates, 2, playground=self.shared_playground)
+            forced_coop = np.random.uniform() < self.forced_coop_rate
+            self.task_dict = self.sample_task_tree(self.stages, end_conditions, possible_objects, element_coordinates, 
+                                              env_coordinates, 2, playground=self.shared_playground, forced_coop=forced_coop)
             self._active_agents = self.shared_playground.agents.copy()
 
         else:
