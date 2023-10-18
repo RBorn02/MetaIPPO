@@ -544,10 +544,7 @@ class CoopCraftingEnv(MultiAgentEnv):
         self.playground_width = config["playground_width"]
         self.resolution = config["agent_resolution"]
         self.seed = config["seed"]
-        self.min_prob = config["min_prob"]
-        self.max_prob = config["max_prob"]
         self.stages = config["stages"]
-        self.new_tasks = config["new_tasks"]
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
@@ -723,11 +720,9 @@ class CoopCraftingEnv(MultiAgentEnv):
             self.spawn_agents(element_coordinates, 1, self.agent_0_playground, "agent_0")
             self.spawn_agents(element_coordinates, 1, self.agent_1_playground, "agent_1")
 
-            #stage_agent_0 = self.stage_scheduler()
             self.task_dict_agent_0 = self.sample_task_tree(self.stages, end_conditions, possible_objects.copy(), element_coordinates.copy(), 
                                               env_coordinates.copy(), 1, playground=self.agent_0_playground, agent_name="agent_0")
             
-            #stage_agent_1 = self.stage_scheduler()
             self.task_dict_agent_1 = self.sample_task_tree(self.stages, end_conditions, possible_objects.copy(), element_coordinates.copy(),
                                                 env_coordinates.copy(), 1, playground=self.agent_1_playground, agent_name="agent_1")
             self._active_agents = []
@@ -930,7 +925,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                     assert False, "Agent name not recognized"
             else:
                 color = possible_agent_colors[i]
-            #color = (170, 170, 170)
             agent = BaseAgent(
             controller=External(),
             radius=12,
@@ -962,7 +956,6 @@ class CoopCraftingEnv(MultiAgentEnv):
         possible_object_types = possible_objects.copy()
         task_dict = {}
         end_condition = random.choice(end_conditions)
-        end_condition = "object_exists"
         end_condition_object = random.choice(possible_object_types)
         possible_object_types.remove(end_condition_object)
         end_condition_object_shape = end_condition_object[0]
@@ -1073,11 +1066,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(diamond_object)
                     needed_in_objects.append(chest_object)
 
-                    #if task_out_objects[0] == "no_object":
-                    #    condition_obj = diamond_object.name
-                    #else:
-                    #    condition_obj = task_out_objects[0].name
-
                     condition_obj = chest_object
                 else:
                     needed_in_objects.append(object)
@@ -1107,7 +1095,6 @@ class CoopCraftingEnv(MultiAgentEnv):
             
             needed_in_objects.append(dropoff_diamond)
             needed_env_object.append(dropoff)
-            #condition_obj = dropoff_diamond.name
             condition_obj = dropoff
         
         elif stage_task_type == "activate_landmarks":
@@ -1126,9 +1113,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                 for i in range(2):
                     possible_agent_names.append("agent_{0}".format(i))
             
-            if self.new_tasks is False:
-                time_limit = self.timelimit
-                
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
             second_agent = possible_agent_names[0]
@@ -1164,10 +1148,6 @@ class CoopCraftingEnv(MultiAgentEnv):
 
             needed_env_object.append(landmark1)
             needed_env_object.append(landmark2)
-            #if task_out_objects[0] != [] and task_out_objects[0] != "no_object":
-            #    condition_obj = task_out_objects[0].name
-            #else:
-            #    condition_obj = "no_object"
             condition_obj = landmark1
     
         elif stage_task_type == "lemon_hunt":
@@ -1212,7 +1192,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                                             temporary=True)
             
             needed_in_objects.append(lemon_dispenser)
-            #condition_obj = lemon.name
             condition_obj = lemon
         
         elif stage_task_type == "pressure_plate":
@@ -1221,7 +1200,7 @@ class CoopCraftingEnv(MultiAgentEnv):
             if num_agents < 2:
                 time_limit = 200
             else:
-                time_limit = 20
+                time_limit = 2
 
             pressure_plate =  TimedCustomRewardOnActivation(radius=15, 
                                                             time_limit=time_limit, 
@@ -1251,12 +1230,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                                              name="pressure_plate_diamond_{0}".format(stage),
                                              temporary=True)
 
-            #pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
-            #                        texture=ColorTexture(color=object_color, size=10),
-            #                        name="pressure_plate_diamond_{0}".format(stage),
-            #                        activation_zone=pressure_plate,
-            #                        temporary=True)
-            
             needed_in_objects.append(pressure_plate_diamond)
             for obj in task_out_objects[1:]:
                 if obj != "no_object":
@@ -1327,52 +1300,9 @@ class CoopCraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(obj)
 
             needed_env_object.append(in_out_machine)
-            #condition_obj = task_out_objects[0].name
             condition_obj = in_out_machine                                            
 
         return needed_in_objects, needed_env_object, condition_obj
-
-    def sample_stage_task_new(self, stage, num_stages, end_condition, assigned_stage_tasks):
-        if stage == 1 and num_stages > 1:
-            if "lemon_hunt" not in assigned_stage_tasks:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["activate_landmarks", "pressure_plate", "crafting"])
-                else:
-                    stage_task = random.choice(["activate_landmarks", "crafting"])
-            else:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = "pressure_plate"
-                else:
-                    stage_task = "crafting"
-        elif stage == num_stages and num_stages > 1:
-            if end_condition == "no_object":
-                stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
-            else:
-                if self.new_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate"])
-                else:
-                    stage_task = random.choice(["crafting"])
-        elif stage == num_stages and num_stages == 1:
-            if end_condition == "no_object":
-                stage_task = random.choice(["activate_landmarks", "lemon_hunt"])
-            else:
-                if self.new_tasks:
-                    stage_task = random.choice(["activate_landmarks", "pressure_plate"])
-                else:
-                    stage_task = "activate_landmarks"
-        else:
-            if "in_out_machine" not in assigned_stage_tasks:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["pressure_plate", "crafting"])
-                else:
-                    stage_task = random.choice(["crafting"])
-            else:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate"])
-                else:
-                    stage_task = random.choice(["crafting"])
-
-        return stage_task
     
     def sample_stage_task(self, stage, num_stages, end_condition, assigned_stage_tasks):
 
@@ -1426,14 +1356,6 @@ class CoopCraftingEnv(MultiAgentEnv):
                     stage_task = random.choice(["crafting", "in_out_machine"])
                 else:
                     stage_task = "crafting"
-        
-        #Only for testing emergent behavior for new version of landmarks
-        if stage == 1:
-            stage_task = "pressure_plate"
-        #elif stage == 2:
-        #    stage_task = "in_out_machine"
-        #elif stage == 3:
-        #    stage_task = "crafting"
 
         return stage_task
     
@@ -1490,12 +1412,9 @@ class CoopCraftingEnvComm(MultiAgentEnv):
         self.playground_width = config["playground_width"]
         self.resolution = config["agent_resolution"]
         self.seed = config["seed"]
-        self.min_prob = config["min_prob"]
-        self.max_prob = config["max_prob"]
         self.stages = config["stages"]
         self.message_len = config["message_length"]
         self.vocab_size = config["vocab_size"]
-        self.new_tasks = config["new_tasks"]
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
@@ -1867,7 +1786,7 @@ class CoopCraftingEnvComm(MultiAgentEnv):
             for p in agent.parts:
                 p.pm_visible_shape.filter = pymunk.ShapeFilter(categories)
             name = "agent_{0}".format(i) if agent_name is None else agent_name
-            self.agent_goal_dict[name] = np.zeros(self.num_goals, dtype=int)
+            self.agent_goal_dict[name] = np.zeros(self.num_goals, dtype=int) #Legacy code
             self.agent_ids.add(name)
             agent_ls.append(agent)
       
@@ -2092,10 +2011,6 @@ class CoopCraftingEnvComm(MultiAgentEnv):
 
             needed_env_object.append(landmark1)
             needed_env_object.append(landmark2)
-            #if task_out_objects[0] != [] and task_out_objects[0] != "no_object":
-            #    condition_obj = task_out_objects[0].name
-            #else:
-            #    condition_obj = "no_object"
             condition_obj = landmark1
 
         elif stage_task_type == "lemon_hunt":
@@ -2135,7 +2050,6 @@ class CoopCraftingEnvComm(MultiAgentEnv):
                                                                 temporary=True)
             
             needed_in_objects.append(lemon_dispenser)
-            #condition_obj = lemon.name
             condition_obj = lemon
         
         elif stage_task_type == "pressure_plate":
@@ -2168,12 +2082,6 @@ class CoopCraftingEnvComm(MultiAgentEnv):
                                     texture=ColorTexture(color=object_color, size=10),
                                     name="pressure_plate_diamond_{0}".format(stage),
                                     temporary=True)
-
-            #pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
-            #                        texture=ColorTexture(color=object_color, size=10),
-            #                        name="pressure_plate_diamond_{0}".format(stage),
-            #                        activation_zone=pressure_plate,
-            #                        temporary=True)
             
             needed_in_objects.append(pressure_plate_diamond)
             for obj in task_out_objects[1:]:
@@ -2208,53 +2116,62 @@ class CoopCraftingEnvComm(MultiAgentEnv):
                     needed_in_objects.append(obj)
 
             needed_env_object.append(in_out_machine)
-            #condition_obj = task_out_objects[0].name
             condition_obj = in_out_machine                                            
 
         return needed_in_objects, needed_env_object, condition_obj
 
     def sample_stage_task(self, stage, num_stages, end_condition, assigned_stage_tasks):
+
         if stage == 1 and num_stages > 1:
-            if "lemon_hunt" not in assigned_stage_tasks:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["activate_landmarks", "pressure_plate", "crafting"])
+            if "lemon_hunt" not in assigned_stage_tasks and "double_activate" not in assigned_stage_tasks:
+                stage_task = random.choice(["activate_landmarks", "double_activate"])
+            elif "lemon_hunt" not in assigned_stage_tasks and "double_activate" in assigned_stage_tasks:
+                if "in_out_machine" not in assigned_stage_tasks:
+                    stage_task = random.choice(["activate_landmarks", "crafting", "in_out_machine"])
                 else:
                     stage_task = random.choice(["activate_landmarks", "crafting"])
-            else:
+            elif "lemon_hunt" in assigned_stage_tasks and "double_activate" not in assigned_stage_tasks:
                 if "in_out_machine" not in assigned_stage_tasks:
-                    stage_task = "in_out_machine"
+                    stage_task = random.choice(["activate_landmarks", "double_activate", "in_out_machine", "crafting"])
                 else:
-                    if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                        stage_task = random.choice(["crafting", "pressure_plate"])
-                    else:
-                        stage_task = "crafting"
+                    stage_task = random.choice(["activate_landmarks", "double_activate", "crafting"])
+               
+           
         elif stage == num_stages and num_stages > 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
             else:
-                if self.new_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate", "in_out_machine"])
-                else:
-                    stage_task = random.choice(["crafting", "in_out_machine"])
+                stage_task = random.choice(["crafting", "in_out_machine"])
+
         elif stage == num_stages and num_stages == 1:
             if end_condition == "no_object":
                 stage_task = random.choice(["activate_landmarks", "lemon_hunt"])
             else:
-                if self.new_tasks:
-                    stage_task = random.choice(["activate_landmarks", "pressure_plate"])
-                else:
-                    stage_task = "activate_landmarks"
+                stage_task = random.choice(["activate_landmarks", "double_activate"])
+
         else:
-            if "in_out_machine" not in assigned_stage_tasks:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["in_out_machine", "pressure_plate", "crafting"])
+            if "crafting" in assigned_stage_tasks:
+                if "lemon_hunt" not in assigned_stage_tasks:
+                    if "double_activate" not in assigned_stage_tasks:
+                        if "in_out_machine" not in assigned_stage_tasks:
+                            stage_task = random.choice(["double_activate", "in_out_machine"])
+                        else:
+                            stage_task = "double_activate"
+                    else:
+                        if "in_out_machine" not in assigned_stage_tasks:
+                            stage_task = random.choice(["crafting", "in_out_machine"])
+                        else:
+                            stage_task = "crafting"
                 else:
-                    stage_task = random.choice(["crafting", "in_out_machine"])
+                    if "in_out_machine" not in assigned_stage_tasks:
+                        stage_task = random.choice(["crafting", "in_out_machine"])
+                    else:
+                        stage_task = "crafting"
             else:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate"])
+                if "in_out_machine" not in assigned_stage_tasks:
+                    stage_task = random.choice(["crafting", "in_out_machine"])
                 else:
-                    stage_task = random.choice(["crafting"])
+                    stage_task = "crafting"
         
         return stage_task
     

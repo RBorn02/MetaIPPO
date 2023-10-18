@@ -543,13 +543,10 @@ class TestCraftingEnv(MultiAgentEnv):
         self.playground_width = config["playground_width"]
         self.resolution = config["agent_resolution"]
         self.seed = config["seed"]
-        self.min_prob = config["min_prob"]
-        self.max_prob = config["max_prob"]
         self.test_shape = config["test_shape"]
         self.test_color = config["test_color"]
         self.all_test_objects = config["all_test_objects"]
         self.stages = config["stages"]
-        self.new_tasks = config["new_tasks"]
         self.episodes = 0
         self.time_steps = 0
         self.truncated = False
@@ -733,7 +730,7 @@ class TestCraftingEnv(MultiAgentEnv):
             self.spawn_agents(element_coordinates, 2, self.shared_playground)
             #stage = self.stage_scheduler() #Change later but for now we only use 3 stages and sampling does not work for non coop
             forced_coop = np.random.uniform() < self.forced_coop_rate
-            self.task_dict = self.sample_task_tree(self.stages, end_conditions, possible_objects, element_coordinates, 
+            self.task_dict = self.sample_task_tree(self.stages, end_conditions, objects, element_coordinates, 
                                               env_coordinates, 2, playground=self.shared_playground, forced_coop=forced_coop)
             self._active_agents = self.shared_playground.agents.copy()
 
@@ -972,7 +969,6 @@ class TestCraftingEnv(MultiAgentEnv):
         possible_object_types = possible_objects.copy()
         task_dict = {}
         end_condition = random.choice(end_conditions)
-        #end_condition = "no_object"
         end_condition_object = random.choice(possible_object_types)
         possible_object_types.remove(end_condition_object)
         end_condition_object_shape = end_condition_object[0]
@@ -1083,11 +1079,6 @@ class TestCraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(diamond_object)
                     needed_in_objects.append(chest_object)
 
-                    #if task_out_objects[0] == "no_object":
-                    #    condition_obj = diamond_object.name
-                    #else:
-                    #    condition_obj = task_out_objects[0].name
-
                     condition_obj = chest_object
                 else:
                     needed_in_objects.append(object)
@@ -1117,7 +1108,6 @@ class TestCraftingEnv(MultiAgentEnv):
             
             needed_in_objects.append(dropoff_diamond)
             needed_env_object.append(dropoff)
-            #condition_obj = dropoff_diamond.name
             condition_obj = dropoff
         
         elif stage_task_type == "activate_landmarks":
@@ -1136,8 +1126,6 @@ class TestCraftingEnv(MultiAgentEnv):
                 for i in range(2):
                     possible_agent_names.append("agent_{0}".format(i))
             
-            if self.new_tasks is False:
-                time_limit = self.timelimit
                 
             first_agent = random.choice(possible_agent_names)
             possible_agent_names.remove(first_agent)
@@ -1174,10 +1162,6 @@ class TestCraftingEnv(MultiAgentEnv):
 
             needed_env_object.append(landmark1)
             needed_env_object.append(landmark2)
-            #if task_out_objects[0] != [] and task_out_objects[0] != "no_object":
-            #    condition_obj = task_out_objects[0].name
-            #else:
-            #    condition_obj = "no_object"
             condition_obj = landmark1
     
         elif stage_task_type == "lemon_hunt":
@@ -1222,7 +1206,6 @@ class TestCraftingEnv(MultiAgentEnv):
                                             temporary=True)
             
             needed_in_objects.append(lemon_dispenser)
-            #condition_obj = lemon.name
             condition_obj = lemon
         
         elif stage_task_type == "pressure_plate":
@@ -1261,12 +1244,6 @@ class TestCraftingEnv(MultiAgentEnv):
                                              name="pressure_plate_diamond_{0}".format(stage),
                                              temporary=True)
 
-            #pressure_plate_diamond = ConditionActiveElement(task_out_objects[0], physical_shape=object_shape, radius=10,
-            #                        texture=ColorTexture(color=object_color, size=10),
-            #                        name="pressure_plate_diamond_{0}".format(stage),
-            #                        activation_zone=pressure_plate,
-            #                        temporary=True)
-            
             needed_in_objects.append(pressure_plate_diamond)
             for obj in task_out_objects[1:]:
                 if obj != "no_object":
@@ -1337,52 +1314,9 @@ class TestCraftingEnv(MultiAgentEnv):
                     needed_in_objects.append(obj)
 
             needed_env_object.append(in_out_machine)
-            #condition_obj = task_out_objects[0].name
             condition_obj = in_out_machine                                            
 
         return needed_in_objects, needed_env_object, condition_obj
-
-    def sample_stage_task_new(self, stage, num_stages, end_condition, assigned_stage_tasks):
-        if stage == 1 and num_stages > 1:
-            if "lemon_hunt" not in assigned_stage_tasks:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["activate_landmarks", "pressure_plate", "crafting"])
-                else:
-                    stage_task = random.choice(["activate_landmarks", "crafting"])
-            else:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = "pressure_plate"
-                else:
-                    stage_task = "crafting"
-        elif stage == num_stages and num_stages > 1:
-            if end_condition == "no_object":
-                stage_task = random.choice(["lemon_hunt", "dropoff", "crafting"])
-            else:
-                if self.new_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate"])
-                else:
-                    stage_task = random.choice(["crafting"])
-        elif stage == num_stages and num_stages == 1:
-            if end_condition == "no_object":
-                stage_task = random.choice(["activate_landmarks", "lemon_hunt"])
-            else:
-                if self.new_tasks:
-                    stage_task = random.choice(["activate_landmarks", "pressure_plate"])
-                else:
-                    stage_task = "activate_landmarks"
-        else:
-            if "in_out_machine" not in assigned_stage_tasks:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["pressure_plate", "crafting"])
-                else:
-                    stage_task = random.choice(["crafting"])
-            else:
-                if self.new_tasks and "pressure_plate" not in assigned_stage_tasks:
-                    stage_task = random.choice(["crafting", "pressure_plate"])
-                else:
-                    stage_task = random.choice(["crafting"])
-
-        return stage_task
     
     def sample_stage_task(self, stage, num_stages, end_condition, assigned_stage_tasks):
 
@@ -1437,14 +1371,6 @@ class TestCraftingEnv(MultiAgentEnv):
                 else:
                     stage_task = "crafting"
         
-        #Only for testing emergent behavior for new version of landmarks
-        #if stage == 1:
-        #    stage_task = "dropoff"
-        #elif stage == 2:
-        #    stage_task = "in_out_machine"
-        #elif stage == 3:
-        #    stage_task = "crafting"
-
         return stage_task
     
     def build_coordinates(self):

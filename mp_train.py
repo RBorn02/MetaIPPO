@@ -25,22 +25,16 @@ parser.add_argument("--pretrained", default=None, type=str,
                     help="Optional path to the pretrained models")
 parser.add_argument("--debug", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles debug mode, disables logging")
-parser.add_argument("--env_name", type=str, default="MultiAgentLandmarks",
+parser.add_argument("--env_name", type=str, default="CoopCraftingEnv",
                     help="Name of the environment to use")
 parser.add_argument("--num_agents", type=int, default=2,
                     help="Number of agents in the environment")
 parser.add_argument("--num_landmarks", type=int, default=4,
                     help="Number of landmarks in the environment")
-parser.add_argument("--random_assign", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
-                    help="If true, changes the shape and color of the landmarks randomly")
 parser.add_argument("--message_length", type=int, default=1,
                     help="Length of the message")
 parser.add_argument("--vocab_size", type=int, default=3,
                     help="Size of the vocabulary")
-parser.add_argument("--min_prob", type=float, default=0.025,
-                    help="Min probability of a stage being sampled in crafting env")
-parser.add_argument("--max_prob", type=float, default=0.95,
-                    help="Max probability of a stage being sampled in crafting env")
 parser.add_argument("--playground_height", type=int, default=300,
                     help="Height of the playground")
 parser.add_argument("--playground_width", type=int, default=300,
@@ -49,23 +43,21 @@ parser.add_argument("--agent_resolution", type=int, default=64,
                     help="Resolution of the agent view")
 parser.add_argument("--num_envs", type=int, default=16,
                     help="Number of environments to vectorize")
-parser.add_argument("--time_limit", type=int, default=250,
+parser.add_argument("--time_limit", type=int, default=1000,
                     help="Number of max steps per episode")
-parser.add_argument("--coop_chance", type=float, default=1.0,
+parser.add_argument("--coop_chance", type=float, default=0.5,
                     help="Rate of multi agent episodes")
-parser.add_argument("--forced_coop_rate", type=float, default=1.0,
+parser.add_argument("--forced_coop_rate", type=float, default=0.0,
                     help="Rate of multi agent episodes with forced cooperative goals")
 parser.add_argument("--stages", type=int, default=3,
                     help="Number of stages in the crafting environment")
-parser.add_argument("--new_tasks", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
-                    help="Toggles whether to also use new subtasks for task tree construction")
 parser.add_argument("--single_goal", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Only sample a goal once per episode")
-parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+parser.add_argument("--single_reward", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Controls wether agents are done after receiving the reward or continue getting rewards")
 parser.add_argument("--total_steps", type=int, default=2.5*10e7,
                     help="Number of steps to train for")
-parser.add_argument("--rollout_steps", type=int, default=32000,
+parser.add_argument("--rollout_steps", type=int, default=128000,
                     help="Number of steps per rollout")
 parser.add_argument("--seed", type=int, default=1,
                     help="Random seed")
@@ -113,9 +105,9 @@ parser.add_argument("--channel_2", type=int, default=32,
                     help="Number of channels in the second convolutional layer")
 parser.add_argument("--channel_3", type=int, default=32,
                     help="Number of channels in the third convolutional layer")
-parser.add_argument("--lstm_in_size", type=int, default=64,
+parser.add_argument("--lstm_in_size", type=int, default=256,
                     help="Size of the LSTM hidden state")
-parser.add_argument("--lstm_hidden_size", type=int, default=64,
+parser.add_argument("--lstm_hidden_size", type=int, default=256,
                     help="Size of the LSTM hidden state")
 parser.add_argument("--lstm_layers", type=int, default=1,
                     help="Number of LSTM layers")
@@ -125,7 +117,7 @@ parser.add_argument("--actor_hidden_size", type=int, default=64,
                     help="Size of the actor hidden state")
 parser.add_argument("--use_last_action_reward", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
                     help="Toggles whether or not to use the last action and reward as input to the LSTM")
-parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=True, nargs="?", const=True,
+parser.add_argument("--contact", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use contact information as input to the LSTM")
 parser.add_argument("--one_hot_message", type=lambda x: bool(strtobool(x)), default=False, nargs="?", const=True,
                     help="Toggles whether or not to use one hot encoding for the message")

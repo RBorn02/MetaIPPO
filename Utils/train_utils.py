@@ -187,14 +187,10 @@ def build_config(args):
         config["env_config"]["single_reward"] = args.single_reward
         config["env_config"]["vocab_size"] = args.vocab_size
         config["env_config"]["message_length"] = args.message_length
-        config["env_config"]["random_assign"] = args.random_assign
-        config["env_config"]["min_prob"] = args.min_prob
-        config["env_config"]["max_prob"] = args.max_prob
         config["env_config"]["playground_height"] = args.playground_height
         config["env_config"]["playground_width"] = args.playground_width
         config["env_config"]["agent_resolution"] = args.agent_resolution
         config["env_config"]["stages"] = args.stages
-        config["env_config"]["new_tasks"] = args.new_tasks
         config["env_config"]["forced_coop_rate"] = args.forced_coop_rate
         
         config["pretrained"] = args.pretrained
