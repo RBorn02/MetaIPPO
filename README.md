@@ -13,6 +13,6 @@ python3 mp_train.py --num_workers 8 --num_envs 16 --rollout_steps 128000
 **Evaluation**
 To launch the evaluation of pretrained models with 8 environments on 1 worker with a total batch size of 8000 enivornemnt steps and record a video, run:
 ```
-python3 --pretrained models --num_workers 1 --num_envs 8 --rollout_steps 8000 --record_video True
+python3 testing.py --pretrained models --num_workers 1 --num_envs 8 --rollout_steps 8000 --record_video True
 ```
 
